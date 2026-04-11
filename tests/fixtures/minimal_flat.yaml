@@ -1,0 +1,31 @@
+project:
+  name: minimal_flat
+  kicad_version: 10
+
+board:
+  size: [50, 30]
+  paper: A4
+
+global_nets: [VCC, GND]
+
+templates:
+  led:
+    symbol: LED:WS2812B
+    footprint: LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm
+    value: WS2812B
+
+sheets:
+  main:
+    paper: A4
+    components:
+      - ref: LED1
+        template: led
+        pcb:
+          position: [10, 15]
+          layer: front
+          rotation: 0
+        pin_nets:
+          "1": VCC
+          "2": D1
+          "3": GND
+          "4": D0

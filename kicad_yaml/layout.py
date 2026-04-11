@@ -1,0 +1,212 @@
+"""Layout engine: expand a Design into a flat list of ResolvedComponent
+instances that writers can consume.
+
+Responsibilities:
+- Grid → per-cell Component expansion (with template variable substitution)
+- Template → symbol/footprint/value resolution
+- Layer assignment per part (cell layer overrides grid layer)
+- Back-side rotation + offset mirroring so user intent matches visual output
+- Sheet membership: every ResolvedComponent knows which sheet it came from
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
+
+from kicad_yaml.expressions import substitute
+from kicad_yaml.schema import (
+    Component,
+    Design,
+    Grid,
+    GridCellPart,
+    Layer,
+    SchematicConfig,
+    Template,
+)
+
+
+@dataclass
+class ResolvedComponent:
+    """A fully-resolved component ready for writers to consume."""
+    ref: str
+    sheet_id: str
+    symbol_lib_name: str          # "lib:name" for Symbol lookup
+    footprint_lib_name: str       # "lib:name" for Footprint lookup
+    value: str
+    pcb_position: Tuple[float, float]
+    pcb_layer: Layer
+    pcb_rotation: float           # raw user CCW rotation (not the stored KiCad angle)
+    pin_nets: Dict[str, str]
+    no_connect_pins: List[str]
+    sch_position: Optional[Tuple[float, float]]   # None = auto-layout will fill in
+    no_connect_pins_set: frozenset = field(default_factory=frozenset)
+
+    def __post_init__(self) -> None:
+        self.no_connect_pins_set = frozenset(self.no_connect_pins)
+
+
+def expand_design(design: Design) -> List[ResolvedComponent]:
+    """Return a canonical ordered list of all resolved components in the
+    design, grouped by sheet.  Order inside a sheet: explicit components
+    first, then grid-expanded cells in row_major order.
+    """
+    out: List[ResolvedComponent] = []
+    for sheet_name, sheet in design.sheets.items():
+        for comp in sheet.components:
+            out.append(_resolve_component(comp, design.templates, sheet_name))
+        for grid in sheet.grids:
+            out.extend(_expand_grid(grid, design.templates, sheet_name))
+    return out
+
+
+def resolve_rotation_for_layer(rotation_ccw: float, layer: Layer) -> float:
+    """Translate a user-facing CCW rotation into the KiCad file-stored angle.
+
+    For front-side parts the rotation is stored verbatim.  For back-side
+    parts KiCad applies rotation in the mirrored frame (effective CW as
+    viewed from the front), so we invert the angle to match user intent.
+    """
+    if layer is Layer.FRONT:
+        return rotation_ccw % 360.0
+    return (-rotation_ccw) % 360.0
+
+
+def _resolve_part_source(
+    part,
+    templates: Dict[str, Template],
+) -> Tuple[str, str, str]:
+    """Return (symbol_lib_name, footprint_lib_name, value) for a part,
+    applying template defaults where fields are unset."""
+    if part.template is not None:
+        tpl = templates[part.template]
+        sym = part.symbol or tpl.symbol
+        fp = part.footprint or tpl.footprint
+        val = part.value if part.value is not None else tpl.value
+    else:
+        sym = part.symbol or ""
+        fp = part.footprint or ""
+        val = part.value or ""
+    return sym, fp, val
+
+
+def _resolve_component(
+    comp: Component,
+    templates: Dict[str, Template],
+    sheet_id: str,
+) -> ResolvedComponent:
+    sym, fp, val = _resolve_part_source(comp, templates)
+    return ResolvedComponent(
+        ref=comp.ref,
+        sheet_id=sheet_id,
+        symbol_lib_name=sym,
+        footprint_lib_name=fp,
+        value=val,
+        pcb_position=comp.pcb.position,
+        pcb_layer=comp.pcb.layer,
+        pcb_rotation=comp.pcb.rotation,
+        pin_nets=dict(comp.pin_nets),
+        no_connect_pins=list(comp.no_connect_pins),
+        sch_position=comp.schematic.position if comp.schematic else None,
+    )
+
+
+def _expand_grid(
+    grid: Grid,
+    templates: Dict[str, Template],
+    sheet_id: str,
+) -> List[ResolvedComponent]:
+    out: List[ResolvedComponent] = []
+    cols, rows = grid.shape
+    total = cols * rows
+    pitch_x, pitch_y = grid.pitch
+    origin_x, origin_y = grid.origin
+    for r in range(1, rows + 1):
+        for c in range(1, cols + 1):
+            index = (r - 1) * cols + c  # row_major
+            cell_x = origin_x + (c - 1) * pitch_x
+            cell_y = origin_y + (r - 1) * pitch_y
+            variables = {
+                "index": index,
+                "row": r,
+                "col": c,
+                "rows": rows,
+                "cols": cols,
+            }
+            for cell in grid.parts_per_cell:
+                layer = cell.layer if cell.layer is not None else grid.layer
+                offset_x, offset_y = cell.offset
+                if layer is Layer.BACK:
+                    offset_x = -offset_x   # mirror X for back-side
+                pos = (cell_x + offset_x, cell_y + offset_y)
+
+                ref = substitute(cell.ref, variables)
+                pin_nets = {
+                    k: substitute(v, variables)
+                    for k, v in cell.pin_nets.items()
+                }
+                no_connect = [substitute(p, variables) for p in cell.no_connect_pins]
+
+                sym, fp, val = _resolve_part_source(cell, templates)
+
+                out.append(
+                    ResolvedComponent(
+                        ref=ref,
+                        sheet_id=sheet_id,
+                        symbol_lib_name=sym,
+                        footprint_lib_name=fp,
+                        value=val,
+                        pcb_position=pos,
+                        pcb_layer=layer,
+                        pcb_rotation=0.0,
+                        pin_nets=pin_nets,
+                        no_connect_pins=no_connect,
+                        sch_position=None,
+                    )
+                )
+    assert len(out) == total * len(grid.parts_per_cell)
+    return out
+
+
+# Schematic auto-layout constants (mm).  Chosen so KiCad's 1.27 mm snap grid
+# and default label fonts don't clash.  Tuning these is presentation-only.
+_SCH_CELL_W = 38.0
+_SCH_CELL_H = 30.0
+_SCH_GRID_X0 = 35.0
+_SCH_GRID_Y0 = 30.0
+
+
+def assign_schematic_positions(
+    resolved: List[ResolvedComponent],
+    *,
+    sheet_paper: str,
+) -> None:
+    """Fill in ``sch_position`` for every ResolvedComponent that doesn't
+    already have one.  Mutates the list in place.
+
+    v1: lay auto-placed entries on a dense row-major grid of
+    ceil(sqrt(n)) columns, preserving the resolved order.  Explicit
+    sch_position entries are left untouched.
+    """
+    del sheet_paper  # reserved for v2
+
+    grouped: Dict[str, List[ResolvedComponent]] = {}
+    for r in resolved:
+        if r.sch_position is None:
+            grouped.setdefault(r.sheet_id, []).append(r)
+
+    for sheet_id, entries in grouped.items():
+        _place_sheet_entries(entries)
+
+
+def _place_sheet_entries(entries: List[ResolvedComponent]) -> None:
+    import math
+    n = len(entries)
+    cols = max(1, math.ceil(math.sqrt(n)))
+    for i, r in enumerate(entries):
+        row = i // cols
+        col = i % cols
+        r.sch_position = (
+            _SCH_GRID_X0 + col * _SCH_CELL_W,
+            _SCH_GRID_Y0 + row * _SCH_CELL_H,
+        )

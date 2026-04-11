@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kicad-yaml"
+version = "0.1.0"
+description = "Generate KiCad schematics and PCBs from a YAML design file."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [{name = "ecs"}]
+dependencies = [
+    "kiutils>=1.4.8",
+    "ruamel.yaml>=0.18",
+    "simpleeval>=0.9.13",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+
+[project.scripts]
+kicad-yaml = "kicad_yaml.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["kicad_yaml*"]
+exclude = ["tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,67 @@
+project:
+  name: integration_hierarchical
+  kicad_version: 10
+
+board:
+  size: [80, 50]
+  paper: A3
+
+global_nets: [VCC, GND]
+
+templates:
+  fake_led:
+    symbol: Fake:FakeC
+    footprint: Fake:FakeSMD
+    value: LED
+  fake_cap:
+    symbol: Fake:FakeC
+    footprint: Fake:FakeSMD
+    value: 100nF
+  fake_r:
+    symbol: Fake:FakeR
+    footprint: Fake:FakeSMD
+    value: 330
+
+sheets:
+  main:
+    paper: A3
+    components:
+      - ref: R1
+        template: fake_r
+        pcb:
+          position: [5, 5]
+          layer: back
+          rotation: 90
+        pin_nets:
+          "1": MCU_DATA
+          "2": D_MAIN
+    subsheets:
+      - sheet: led_matrix
+        label: "LED Matrix"
+        schematic:
+          position: [150, 80]
+        size: [50, 40]
+        pin_map:
+          D_MAIN: CHAIN_IN
+
+  led_matrix:
+    paper: A2
+    grids:
+      - id: leds
+        shape: [2, 1]
+        pitch: [15, 15]
+        origin: [20, 15]
+        order: row_major
+        layer: front
+        parts_per_cell:
+          - template: fake_led
+            ref: "LED{index}"
+            pin_nets:
+              "1": VCC
+              "2": "CHAIN_IN"
+          - template: fake_cap
+            ref: "C{index}"
+            offset: [0, 5]
+            pin_nets:
+              "1": VCC
+              "2": GND
