@@ -4,6 +4,7 @@ writes a valid KiCad 10 .kicad_pcb file."""
 from __future__ import annotations
 
 import copy
+import math
 import uuid
 from pathlib import Path
 from typing import Iterable, List, Optional
@@ -96,6 +97,15 @@ def write_pcb(
         libraries = LibraryResolver()
     for rc in resolved:
         fp = _place_footprint(rc, libraries, net_order, design, topology)
+        # kiutils serialises footprint zones with (net 0) which KiCad
+        # misinterprets as board-level zones at raw local coords.  Extract
+        # them, convert to absolute coordinates, and add as board zones.
+        if fp.zones:
+            for zone in fp.zones:
+                _zone_to_board_coords(zone, fp.position, rc.pcb_layer)
+                zone.tstamp = str(uuid.uuid4())
+                board.zones.append(zone)
+            fp.zones = []
         board.footprints.append(fp)
 
     board.to_file(str(output))
@@ -156,6 +166,26 @@ def _place_footprint(
     if hasattr(fp, "tstamp"):
         fp.tstamp = str(uuid.uuid4())
     return fp
+
+
+def _zone_to_board_coords(
+    zone, fp_pos: Position, layer: Layer
+) -> None:
+    """Convert a footprint-local zone to board-level absolute coordinates."""
+    angle_rad = math.radians(fp_pos.angle or 0)
+    mirror_x = layer is Layer.BACK
+    if mirror_x:
+        zone.layers = [_flip_layer(l) for l in zone.layers]
+    for poly in zone.polygons or []:
+        for pt in poly.coordinates or []:
+            lx, ly = pt.X, pt.Y
+            if mirror_x:
+                lx = -lx
+            # Apply rotation
+            rx = lx * math.cos(angle_rad) - ly * math.sin(angle_rad)
+            ry = lx * math.sin(angle_rad) + ly * math.cos(angle_rad)
+            pt.X = fp_pos.X + rx
+            pt.Y = fp_pos.Y + ry
 
 
 def _flip_layer(layer: str) -> str:
