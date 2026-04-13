@@ -91,6 +91,11 @@ def build(
     except LibraryError as e:
         return _fail("LIB-SYMBOL-NOT-FOUND", str(e))
 
+    # Check for KiCad lock files before writing. If KiCad has the project
+    # open, it will overwrite our output when it saves. Warn so the user
+    # knows to reload in KiCad rather than save.
+    warnings = _check_lock_files(output_dir, design.project.name)
+
     try:
         pcb_path = output_dir / f"{design.project.name}.kicad_pcb"
         write_pcb(design, resolved, net_order, pcb_path,
@@ -113,6 +118,7 @@ def build(
     return BuildResult(
         success=True,
         generated_files=[pcb_path, *sch_paths],
+        warnings=warnings,
     )
 
 
@@ -164,6 +170,40 @@ def _source_for(yaml_source: YamlSource) -> Optional[SourceLocation]:
     if isinstance(yaml_source, Path):
         return SourceLocation(file=yaml_source, line=None)
     return None
+
+
+def _check_lock_files(output_dir: Path, project_name: str) -> List[Message]:
+    """Check for KiCad lock files in the output directory.
+
+    KiCad creates ``~filename.lck`` when a file is open. If we write over
+    files that KiCad has open, KiCad's next save will overwrite our output
+    with its stale in-memory copy. We warn so the user knows to reload in
+    KiCad (not save) after the build finishes.
+    """
+    warnings: List[Message] = []
+    lock_patterns = [
+        f"~{project_name}.kicad_pcb.lck",
+        "~main.kicad_sch.lck",
+        "~*.kicad_sch.lck",
+        "~*.kicad_pcb.lck",
+    ]
+    found = set()
+    for pattern in lock_patterns:
+        for lck in output_dir.glob(pattern):
+            found.add(lck.name)
+    if found:
+        names = ", ".join(sorted(found))
+        warnings.append(Message(
+            severity="warning",
+            code="KICAD-LOCK-FILES",
+            message=(
+                f"KiCad appears to have files open ({names}). "
+                f"Files were written successfully, but switch to KiCad and "
+                f"reload when prompted. Do not save in KiCad before reloading, "
+                f"or it will overwrite the generated output."
+            ),
+        ))
+    return warnings
 
 
 def _collect_net_order(design, resolved, topology) -> List[str]:
