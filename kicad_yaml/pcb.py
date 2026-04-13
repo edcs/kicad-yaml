@@ -20,7 +20,7 @@ from kiutils.items.gritems import GrLine
 
 from kicad_yaml.layout import ResolvedComponent, resolve_rotation_for_layer
 from kicad_yaml.libraries import LibraryResolver
-from kicad_yaml.schema import Design, Layer
+from kicad_yaml.schema import BoardZone, Design, Layer
 from kicad_yaml.topology import SheetTopology
 
 
@@ -92,6 +92,12 @@ def write_pcb(
     board = KiBoard.create_new()
     _set_outline(board, design)
     _set_net_table(board, net_order)
+
+    net_index = {name: i + 1 for i, name in enumerate(net_order)}
+    for zone_def in design.board.zones:
+        board.zones.append(
+            _board_zone_to_ki_zone(zone_def, net_index, design, topology)
+        )
 
     if resolved and libraries is None:
         libraries = LibraryResolver()
@@ -194,6 +200,49 @@ def _flip_layer(layer: str) -> str:
     if layer and layer.startswith("B."):
         return "F." + layer[2:]
     return layer
+
+
+def _board_zone_to_ki_zone(
+    zone_def: BoardZone,
+    net_index: dict,
+    design: Design,
+    topology: Optional[SheetTopology],
+):
+    """Convert a schema BoardZone to a kiutils Zone for the board."""
+    from kiutils.items.zones import Zone as KiZone
+    from kiutils.items.zones import ZonePolygon as KiZonePolygon
+    from kiutils.items.zones import FillSettings, Hatch
+
+    qualified = qualify_net_name(
+        zone_def.net,
+        sheet_id="main",
+        design=design,
+        topology=topology,
+    )
+    net_num = net_index.get(qualified, 0)
+    net_name = qualified if net_num else zone_def.net
+
+    coords = [Position(X=x, Y=y) for x, y in zone_def.polygon]
+    ki_poly = KiZonePolygon(coordinates=coords)
+
+    return KiZone(
+        net=net_num,
+        netName=net_name,
+        layers=[zone_def.layer],
+        tstamp=str(uuid.uuid4()),
+        name=zone_def.name,
+        priority=zone_def.priority or None,
+        clearance=zone_def.clearance,
+        minThickness=zone_def.min_thickness,
+        hatch=Hatch(style="edge", pitch=0.508),
+        fillSettings=FillSettings(
+            yes=False,
+            thermalGap=zone_def.clearance,
+            thermalBridgeWidth=0.5,
+        ),
+        polygons=[ki_poly],
+        filledPolygons=[],
+    )
 
 
 def flip_footprint_to_back(fp: Footprint) -> None:

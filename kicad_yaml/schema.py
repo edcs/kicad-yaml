@@ -23,10 +23,22 @@ class Project:
     kicad_version: int = 10
 
 
-@dataclass(frozen=True)
+@dataclass
+class BoardZone:
+    net: str                            # net name, e.g. "GND" or "VCC"
+    layer: str                          # KiCad layer: "F.Cu", "B.Cu"
+    polygon: List[Tuple[float, float]]  # outline corner points (mm)
+    clearance: float = 0.5             # thermal-relief / edge clearance (mm)
+    min_thickness: float = 0.254       # minimum copper width (mm)
+    priority: int = 0
+    name: Optional[str] = None
+
+
+@dataclass
 class Board:
     size: Tuple[float, float]     # (width, height) in mm
     paper: str = "A4"
+    zones: List[BoardZone] = field(default_factory=list)
 
 
 @dataclass

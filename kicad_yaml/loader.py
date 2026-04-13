@@ -20,6 +20,7 @@ from kicad_yaml.expressions import variables_used, ALLOWED_VARS, substitute
 from kicad_yaml.topology import SheetTopology, TopologyError
 from kicad_yaml.schema import (
     Board,
+    BoardZone,
     Component,
     Design,
     Grid,
@@ -40,7 +41,8 @@ class LoadError(ValueError):
 
 _TOP_LEVEL_KEYS = {"project", "board", "global_nets", "templates", "sheets"}
 _PROJECT_KEYS = {"name", "kicad_version"}
-_BOARD_KEYS = {"size", "paper"}
+_BOARD_KEYS = {"size", "paper", "zones"}
+_ZONE_KEYS = {"net", "layer", "polygon", "clearance", "min_thickness", "priority", "name"}
 _TEMPLATE_KEYS = {"symbol", "footprint", "value"}
 _COMPONENT_KEYS = {
     "ref", "template", "symbol", "footprint", "value",
@@ -116,9 +118,32 @@ def _build_project(obj: Any) -> Project:
 def _build_board(obj: Any) -> Board:
     _require_dict(obj, "board")
     _require_keys(obj, _BOARD_KEYS, "board", required={"size"})
+    zones = [
+        _build_board_zone(z, f"board.zones[{i}]")
+        for i, z in enumerate(obj.get("zones") or [])
+    ]
     return Board(
         size=_as_xy(obj["size"], "board.size"),
         paper=str(obj.get("paper", "A4")),
+        zones=zones,
+    )
+
+
+def _build_board_zone(obj: Any, context: str) -> BoardZone:
+    _require_dict(obj, context)
+    _require_keys(obj, _ZONE_KEYS, context, required={"net", "layer", "polygon"})
+    raw_polygon = obj["polygon"]
+    if not isinstance(raw_polygon, list) or len(raw_polygon) < 3:
+        raise LoadError(f"{context}.polygon must be a list of at least 3 [x, y] points")
+    polygon = [_as_xy(pt, f"{context}.polygon[{i}]") for i, pt in enumerate(raw_polygon)]
+    return BoardZone(
+        net=str(obj["net"]),
+        layer=str(obj["layer"]),
+        polygon=polygon,
+        clearance=float(obj.get("clearance", 0.5)),
+        min_thickness=float(obj.get("min_thickness", 0.254)),
+        priority=int(obj.get("priority", 0)),
+        name=str(obj["name"]) if obj.get("name") is not None else None,
     )
 
 
