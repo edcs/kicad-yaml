@@ -35,7 +35,7 @@ def test_build_command_ok(tmp_path, monkeypatch, capsys):
     assert exit_code == 0
     out = capsys.readouterr().out
     assert "cli_ok.kicad_pcb" in out
-    assert "main.kicad_sch" in out
+    assert "cli_ok.kicad_sch" in out
 
 
 def test_build_command_missing_file(monkeypatch, capsys):

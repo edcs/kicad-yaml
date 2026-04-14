@@ -141,7 +141,7 @@ def test_main_sheet_without_parent_has_no_hier_labels():
             libraries=LibraryResolver(kicad_share=FAKE_SHARE),
             topology=topo,
         )
-        sch = Schematic.from_file(str(out_dir / "main.kicad_sch"))
+        sch = Schematic.from_file(str(out_dir / "t.kicad_sch"))
     assert not (sch.hierarchicalLabels or [])
 
 
@@ -163,7 +163,7 @@ def test_parent_sheet_emits_hierarchical_sheet_symbol():
             libraries=LibraryResolver(kicad_share=FAKE_SHARE),
             topology=topo,
         )
-        sch = Schematic.from_file(str(out_dir / "main.kicad_sch"))
+        sch = Schematic.from_file(str(out_dir / "t.kicad_sch"))
 
     # One HierarchicalSheet symbol for the 'child' subsheet.
     assert len(sch.sheets or []) == 1
@@ -206,7 +206,7 @@ def test_sheet_instances_populated_on_every_sheet():
                 libraries=LibraryResolver(kicad_share=FAKE_SHARE),
                 topology=topo,
             )
-        sch_main = Schematic.from_file(str(out_dir / "main.kicad_sch"))
+        sch_main = Schematic.from_file(str(out_dir / "t.kicad_sch"))
         sch_child = Schematic.from_file(str(out_dir / "child.kicad_sch"))
 
     main_paths = {si.instancePath for si in (sch_main.sheetInstances or [])}

@@ -16,7 +16,7 @@ def test_integration_flat_end_to_end(tmp_path):
     assert result.success, [e.message for e in result.errors]
 
     pcb_path = tmp_path / "integration_flat.kicad_pcb"
-    sch_path = tmp_path / "main.kicad_sch"
+    sch_path = tmp_path / "integration_flat.kicad_sch"
     assert pcb_path.exists()
     assert sch_path.exists()
 

@@ -102,6 +102,9 @@ def build(
         write_pcb(design, resolved, net_order, pcb_path,
                   libraries=libraries, topology=topology)
         sch_paths: list[Path] = []
+        # (uuid, filename) pairs in iteration order, root first.
+        sheet_entries: list[tuple[str, str]] = []
+        root_entry: Optional[tuple[str, str]] = None
         for sheet_id, sheet in design.sheets.items():
             sch_path = write_schematic(
                 design, resolved,
@@ -113,8 +116,26 @@ def build(
                 topology=topology,
             )
             sch_paths.append(sch_path)
+            sheet_uuid = topology.uuid_for(sheet_id) if topology else sheet_id
+            entry = (sheet_uuid, sch_path.name)
+            sheet_entries.append(entry)
+            if topology is None or sheet_id == topology.root:
+                root_entry = entry
     except LibraryError as e:
         return _fail("LIB-SYMBOL-NOT-FOUND", str(e))
+
+    # Keep the KiCad project file's sheet registry in sync so child
+    # schematics show up in the Project Manager tree.
+    if root_entry is not None:
+        from kicad_yaml.project_file import sync_sheet_registry
+        pro_path = output_dir / f"{design.project.name}.kicad_pro"
+        ordered = [root_entry] + [e for e in sheet_entries if e != root_entry]
+        sync_sheet_registry(
+            pro_path,
+            project_name=design.project.name,
+            root_sheet=root_entry,
+            all_sheets=ordered,
+        )
 
     if reload_kicad:
         from kicad_yaml.kicad_refresh import refresh_open_pcb

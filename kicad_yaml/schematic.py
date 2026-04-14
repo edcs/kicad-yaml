@@ -50,7 +50,11 @@ def write_schematic(
         libraries = LibraryResolver()
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    out = output_dir / f"{sheet_id}.kicad_sch"
+    # KiCad discovers the root schematic by project name (<project>.kicad_sch).
+    # Non-root sheets are named after their sheet id.
+    is_root = topology is None or sheet_id == topology.root
+    filename = f"{project_name}.kicad_sch" if is_root else f"{sheet_id}.kicad_sch"
+    out = output_dir / filename
 
     sch = Schematic()
     # Older stamps trigger KiCad's "older version, will be upgraded" banner.

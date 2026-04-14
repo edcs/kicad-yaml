@@ -50,7 +50,7 @@ def test_flat_schematic_single_component():
             output_dir=out_dir,
             libraries=LibraryResolver(kicad_share=FAKE_SHARE),
         )
-        sch_path = out_dir / "main.kicad_sch"
+        sch_path = out_dir / "t.kicad_sch"
         assert sch_path.exists()
         sch = Schematic.from_file(str(sch_path))
 
@@ -78,7 +78,7 @@ def test_flat_schematic_local_net_label():
             output_dir=out_dir,
             libraries=LibraryResolver(kicad_share=FAKE_SHARE),
         )
-        sch = Schematic.from_file(str(out_dir / "main.kicad_sch"))
+        sch = Schematic.from_file(str(out_dir / "t.kicad_sch"))
 
     assert {l.text for l in sch.labels} == {"D0"}
     assert {l.text for l in sch.globalLabels} == {"VCC"}
@@ -96,7 +96,7 @@ def test_flat_schematic_no_connect_markers():
             output_dir=out_dir,
             libraries=LibraryResolver(kicad_share=FAKE_SHARE),
         )
-        sch = Schematic.from_file(str(out_dir / "main.kicad_sch"))
+        sch = Schematic.from_file(str(out_dir / "t.kicad_sch"))
 
     assert len(sch.noConnects or []) == 1
 
@@ -115,7 +115,7 @@ def test_no_connect_pin_does_not_get_label():
             output_dir=out_dir,
             libraries=LibraryResolver(kicad_share=FAKE_SHARE),
         )
-        sch = Schematic.from_file(str(out_dir / "main.kicad_sch"))
+        sch = Schematic.from_file(str(out_dir / "t.kicad_sch"))
     # Pin 1 should have a NoConnect marker and NO VCC label at its position.
     assert len(sch.noConnects) == 1
     global_names = {l.text for l in sch.globalLabels}

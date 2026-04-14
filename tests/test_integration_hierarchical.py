@@ -17,7 +17,7 @@ def test_hierarchical_end_to_end(tmp_path):
     assert result.success, [e.message for e in result.errors]
 
     pcb_path = tmp_path / "integration_hierarchical.kicad_pcb"
-    main_path = tmp_path / "main.kicad_sch"
+    main_path = tmp_path / "integration_hierarchical.kicad_sch"
     child_path = tmp_path / "led_matrix.kicad_sch"
     for p in (pcb_path, main_path, child_path):
         assert p.exists(), f"missing {p}"
