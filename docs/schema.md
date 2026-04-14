@@ -126,6 +126,7 @@ Dict mapping sheet ID to sheet definition. `"main"` is required and serves as th
 | `pitch` | `[x, y]` | yes | -- | Cell spacing |
 | `origin` | `[x, y]` | yes | -- | Centre of cell (1,1) on the PCB |
 | `order` | string | no | `"row_major"` | Cell numbering order (`row_major`, `row_major_serpentine`) |
+| `start_corner` | string | no | `"top-left"` | Which physical corner gets `index = 1`. One of `top-left`, `top-right`, `bottom-left`, `bottom-right`. |
 | `layer` | `"front"` / `"back"` | no | `"front"` | Default layer for all cell parts |
 | `parts_per_cell` | list | yes | -- | Component definitions per cell |
 
@@ -144,6 +145,10 @@ Same fields as `components[]` plus:
 
 - `row_major` — index counts left-to-right within each row, top-to-bottom across rows. Cell (r, c) has `index = (r-1) * cols + c`.
 - `row_major_serpentine` — same as `row_major` on odd rows (1, 3, 5…), reversed on even rows. Useful for daisy-chained LED matrices: the chain snakes back at each row end, so the last LED of row N and the first LED of row N+1 are physically adjacent and only need a short trace. Physical `row` and `col` are unchanged; only `index` (the chain position) flips on even rows.
+
+**Grid `start_corner`:**
+
+Picks which physical corner gets `index = 1`. The grid geometry (`origin`, `pitch`) is unchanged — only the index-to-cell mapping is permuted. Combine with `row_major_serpentine` to start a snaking chain from any corner. Example use: placing the first LED near an MCU pin at the bottom of the board so the highest-speed signal has the shortest possible entry trace.
 
 ## Expression syntax
 

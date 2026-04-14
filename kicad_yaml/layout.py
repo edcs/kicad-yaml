@@ -121,13 +121,19 @@ def _expand_grid(
     total = cols * rows
     pitch_x, pitch_y = grid.pitch
     origin_x, origin_y = grid.origin
+    starts_bottom = grid.start_corner.startswith("bottom")
+    starts_right = grid.start_corner.endswith("right")
     for r in range(1, rows + 1):
         for c in range(1, cols + 1):
-            if grid.order == "row_major_serpentine" and r % 2 == 0:
-                # Even rows run right-to-left so the chain snakes back.
-                index = (r - 1) * cols + (cols - c + 1)
+            # Logical (srow, scol): (1, 1) is at the start_corner cell,
+            # incrementing away from it.  Geometry doesn't change; only
+            # the chain index does.
+            srow = (rows - r + 1) if starts_bottom else r
+            scol = (cols - c + 1) if starts_right else c
+            if grid.order == "row_major_serpentine" and srow % 2 == 0:
+                index = (srow - 1) * cols + (cols - scol + 1)
             else:
-                index = (r - 1) * cols + c  # row_major
+                index = (srow - 1) * cols + scol
             cell_x = origin_x + (c - 1) * pitch_x
             cell_y = origin_y + (r - 1) * pitch_y
             variables = {

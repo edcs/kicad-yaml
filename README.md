@@ -65,7 +65,7 @@ See [Getting started](docs/getting-started.md) for details.
 KiCad 10 only. Current features:
 
 - Flat and hierarchical sheets with net propagation
-- Grid parametrics with `{index}`/`{row}`/`{col}` expressions
+- Grid parametrics with `{index}`/`{row}`/`{col}` expressions, serpentine / corner-start options for daisy-chained matrices
 - Back-side component placement with automatic rotation handling
 - Board-level copper pours (`board.zones`) for power planes
 - Route preservation — manual tracks and vias survive a rebuild so long as the components they connect to haven't moved

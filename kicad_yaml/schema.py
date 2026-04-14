@@ -110,9 +110,12 @@ class Grid:
     shape: Tuple[int, int]        # (cols, rows)
     pitch: Tuple[float, float]    # mm
     origin: Tuple[float, float]   # mm; centre of cell (row=1, col=1)
-    order: str                    # "row_major" (only one supported in v1)
+    order: str                    # "row_major" or "row_major_serpentine"
     layer: Layer
     parts_per_cell: List[GridCellPart]
+    # Which physical corner gets index 1.  Geometry (origin, pitch) is
+    # unchanged; only the index-to-cell mapping flips.
+    start_corner: str = "top-left"
 
 
 @dataclass

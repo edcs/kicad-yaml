@@ -50,7 +50,7 @@ _COMPONENT_KEYS = {
 }
 _PCB_KEYS = {"position", "layer", "rotation"}
 _SCH_KEYS = {"position"}
-_GRID_KEYS = {"id", "shape", "pitch", "origin", "order", "layer", "parts_per_cell"}
+_GRID_KEYS = {"id", "shape", "pitch", "origin", "order", "layer", "parts_per_cell", "start_corner"}
 _GRID_CELL_KEYS = _COMPONENT_KEYS | {"offset", "layer"}
 _SHEET_KEYS = {"paper", "components", "grids", "subsheets"}
 _SUBSHEET_KEYS = {"sheet", "label", "schematic", "size", "pin_map"}
@@ -233,6 +233,7 @@ def _build_grid(obj: Any, context: str) -> Grid:
             _build_grid_cell(p, f"{context}.parts_per_cell[{i}]")
             for i, p in enumerate(obj["parts_per_cell"])
         ],
+        start_corner=str(obj.get("start_corner", "top-left")),
     )
 
 
@@ -305,6 +306,7 @@ def _as_layer(obj: Any, context: str) -> Layer:
 
 
 _VALID_GRID_ORDERS = {"row_major", "row_major_serpentine"}
+_VALID_START_CORNERS = {"top-left", "top-right", "bottom-left", "bottom-right"}
 
 
 def _validate_semantic(design: Design) -> None:
@@ -364,6 +366,11 @@ def _check_grid_order(grid: Grid, context: str) -> None:
         raise LoadError(
             f"{context}: unknown grid order '{grid.order}'. "
             f"supported: {sorted(_VALID_GRID_ORDERS)}"
+        )
+    if grid.start_corner not in _VALID_START_CORNERS:
+        raise LoadError(
+            f"{context}: unknown start_corner '{grid.start_corner}'. "
+            f"supported: {sorted(_VALID_START_CORNERS)}"
         )
 
 
