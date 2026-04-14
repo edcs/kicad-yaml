@@ -45,6 +45,19 @@ When `build` overwrites an existing `.kicad_pcb`, it reads the previous file fir
 
 Board-level zones (`board.zones`) are regenerated from the YAML on every build, not preserved from the previous file.
 
+## KiCad file-format version
+
+Each generated `.kicad_pcb` / `.kicad_sch` carries a `YYYYMMDD` format stamp in its header. kicad-yaml writes the correct stamp for the major KiCad version declared in `project.kicad_version` (default `10` → `20260206`), so you won't see KiCad's "This file was created by an older version" banner on open.
+
+Override only if you need a specific build:
+
+```yaml
+project:
+  name: wordclock
+  kicad_version: 10
+  format_version: "20270101"
+```
+
 ## Python API
 
 ```python

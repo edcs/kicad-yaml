@@ -70,6 +70,7 @@ KiCad 10 only. Current features:
 - Board-level copper pours (`board.zones`) for power planes
 - Route preservation — manual tracks and vias survive a rebuild so long as the components they connect to haven't moved
 - `--reload` flag that asks a running KiCad PCB Editor to reload the file after a build (macOS only; requires Accessibility permission)
+- Correct KiCad 10 format stamp on generated files (no "older version will be upgraded on save" banner); override with `project.format_version` if needed
 
 ## License
 

@@ -17,7 +17,8 @@ Every key in `design.yaml` is documented here. All sizes and positions are in mi
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `name` | string | yes | -- | Project name. Used as the `.kicad_pcb` filename stem. |
-| `kicad_version` | int | no | `10` | KiCad file format major version |
+| `kicad_version` | int | no | `10` | KiCad major version. Selects the default format stamp. |
+| `format_version` | string | no | per `kicad_version` | `YYYYMMDD` date stamp written into `.kicad_pcb` / `.kicad_sch` headers. Override if you need to match a specific KiCad build; otherwise leave unset. |
 
 ## `board`
 

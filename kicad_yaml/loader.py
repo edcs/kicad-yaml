@@ -40,7 +40,7 @@ class LoadError(ValueError):
 
 
 _TOP_LEVEL_KEYS = {"project", "board", "global_nets", "templates", "sheets"}
-_PROJECT_KEYS = {"name", "kicad_version"}
+_PROJECT_KEYS = {"name", "kicad_version", "format_version"}
 _BOARD_KEYS = {"size", "paper", "zones"}
 _ZONE_KEYS = {"net", "layer", "polygon", "clearance", "min_thickness", "priority", "name"}
 _TEMPLATE_KEYS = {"symbol", "footprint", "value"}
@@ -109,9 +109,11 @@ def _require_keys(
 def _build_project(obj: Any) -> Project:
     _require_dict(obj, "project")
     _require_keys(obj, _PROJECT_KEYS, "project", required={"name"})
+    fv = obj.get("format_version")
     return Project(
         name=str(obj["name"]),
         kicad_version=int(obj.get("kicad_version", 10)),
+        format_version=str(fv) if fv is not None else None,
     )
 
 

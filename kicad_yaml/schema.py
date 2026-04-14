@@ -17,10 +17,27 @@ class Layer(Enum):
     BACK = "back"
 
 
+# Default KiCad file-format version stamp ("YYYYMMDD") per major version.
+# Used when a design doesn't set `project.format_version`.  Without this,
+# kiutils' defaults are old enough to make KiCad 10 show an
+# "older-version, will be upgraded on save" banner.
+DEFAULT_FORMAT_VERSION: Dict[int, str] = {
+    10: "20260206",
+}
+
+
+def format_version_for(project: "Project") -> str:
+    """Resolve the effective format-version stamp for a design."""
+    if project.format_version:
+        return project.format_version
+    return DEFAULT_FORMAT_VERSION.get(project.kicad_version, "20260206")
+
+
 @dataclass(frozen=True)
 class Project:
     name: str
     kicad_version: int = 10
+    format_version: Optional[str] = None  # YYYYMMDD date stamp; None → use default for kicad_version
 
 
 @dataclass

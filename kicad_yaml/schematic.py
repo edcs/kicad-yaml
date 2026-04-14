@@ -30,7 +30,7 @@ from kiutils.symbol import Symbol
 
 from kicad_yaml.layout import ResolvedComponent
 from kicad_yaml.libraries import LibraryResolver
-from kicad_yaml.schema import Design
+from kicad_yaml.schema import Design, format_version_for
 from kicad_yaml.topology import SheetTopology
 
 
@@ -53,7 +53,10 @@ def write_schematic(
     out = output_dir / f"{sheet_id}.kicad_sch"
 
     sch = Schematic()
-    sch.version = "20231120"
+    # Older stamps trigger KiCad's "older version, will be upgraded" banner.
+    # Default comes from schema.DEFAULT_FORMAT_VERSION; override via
+    # design.project.format_version.
+    sch.version = format_version_for(design.project)
     sch.generator = "kicad-yaml"
     if topology is not None:
         sch.uuid = topology.uuid_for(sheet_id)

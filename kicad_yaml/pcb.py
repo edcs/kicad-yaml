@@ -23,7 +23,7 @@ from kiutils.items.gritems import GrLine
 
 from kicad_yaml.layout import ResolvedComponent, resolve_rotation_for_layer
 from kicad_yaml.libraries import LibraryResolver
-from kicad_yaml.schema import BoardZone, Design, Layer
+from kicad_yaml.schema import BoardZone, Design, Layer, format_version_for
 from kicad_yaml.topology import SheetTopology
 
 
@@ -95,6 +95,7 @@ def write_pcb(
     existing_tracks = _read_existing_tracks(output)
 
     board = KiBoard.create_new()
+    board.version = format_version_for(design.project)
     _set_outline(board, design)
     _set_net_table(board, net_order)
 
