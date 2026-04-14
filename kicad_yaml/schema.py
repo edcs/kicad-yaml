@@ -105,6 +105,20 @@ class GridCellPart:
 
 
 @dataclass
+class GridVia:
+    """A stitching via generated once per grid cell.
+
+    Offset is applied to the cell geometric centre.  For a grid on the
+    back layer, X is mirrored so the via sits at the same *visual* spot
+    relative to the cell.
+    """
+    net: str
+    offset: Tuple[float, float] = (0.0, 0.0)
+    size: float = 0.6      # annular diameter (mm)
+    drill: float = 0.3     # through-hole diameter (mm)
+
+
+@dataclass
 class Grid:
     id: str
     shape: Tuple[int, int]        # (cols, rows)
@@ -116,6 +130,7 @@ class Grid:
     # Which physical corner gets index 1.  Geometry (origin, pitch) is
     # unchanged; only the index-to-cell mapping flips.
     start_corner: str = "top-left"
+    vias_per_cell: List[GridVia] = field(default_factory=list)
 
 
 @dataclass

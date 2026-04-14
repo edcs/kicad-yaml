@@ -52,7 +52,7 @@ def build(
     """Read a design YAML and write KiCad files."""
     from kicad_yaml.loader import load_design, LoadError
     from kicad_yaml.libraries import LibraryResolver, LibraryError
-    from kicad_yaml.layout import expand_design, assign_schematic_positions
+    from kicad_yaml.layout import expand_design, expand_vias, assign_schematic_positions
     from kicad_yaml.pcb import write_pcb
     from kicad_yaml.schematic import write_schematic
     from kicad_yaml.topology import SheetTopology, TopologyError
@@ -97,10 +97,28 @@ def build(
     # knows to reload in KiCad rather than save.
     warnings = _check_lock_files(output_dir, design.project.name)
 
+    vias = expand_vias(design)
+
     try:
         pcb_path = output_dir / f"{design.project.name}.kicad_pcb"
-        write_pcb(design, resolved, net_order, pcb_path,
-                  libraries=libraries, topology=topology)
+        skipped_vias = write_pcb(
+            design, resolved, net_order, pcb_path,
+            libraries=libraries, topology=topology,
+            vias=vias,
+        )
+        if skipped_vias:
+            cell_list = ", ".join(
+                f"{v.grid_id}[r{v.cell_row},c{v.cell_col}]" for v in skipped_vias
+            )
+            warnings.append(Message(
+                severity="warning",
+                code="VIA-SKIPPED-BACKSIDE-CONFLICT",
+                message=(
+                    f"skipped {len(skipped_vias)} via(s) that would collide "
+                    f"with back-side pads — route these cells manually: "
+                    f"{cell_list}"
+                ),
+            ))
         sch_paths: list[Path] = []
         # (uuid, filename) pairs in iteration order, root first.
         sheet_entries: list[tuple[str, str]] = []

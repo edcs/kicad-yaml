@@ -141,6 +141,19 @@ Same fields as `components[]` plus:
 
 `ref`, `value`, and `pin_nets` values support `{expression}` syntax.
 
+### `grids[].vias_per_cell[]`
+
+Stitching vias generated once per grid cell.  Typical use: drop a shared net (GND, VCC) from a front-side SMD pad down to a full-board copper pour on the other layer, without routing 117 individual stub tracks.
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `net` | string | yes | -- | Net to connect. Globals pass through; sheet-local nets are resolved via the usual sheet-path rules. |
+| `offset` | `[x, y]` | no | `[0, 0]` | Offset from cell centre. X is auto-mirrored for `layer: back` grids so a right-side offset still sits on the "right" of each cell when viewed from outside. |
+| `size` | float | no | `0.6` | Via annular diameter (mm) |
+| `drill` | float | no | `0.3` | Via hole diameter (mm) |
+
+**Conflict detection.**  Before writing each via, kicad-yaml checks the candidate position against every pad on every back-side component.  Vias whose copper would overlap a back-side pad are silently dropped, and the build emits a warning with a list of the skipped `(row, col)` cells so you know which to route by hand.
+
 **Grid orders:**
 
 - `row_major` — index counts left-to-right within each row, top-to-bottom across rows. Cell (r, c) has `index = (r-1) * cols + c`.

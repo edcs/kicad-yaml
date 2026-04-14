@@ -25,6 +25,7 @@ from kicad_yaml.schema import (
     Design,
     Grid,
     GridCellPart,
+    GridVia,
     Layer,
     PcbConfig,
     Project,
@@ -50,7 +51,9 @@ _COMPONENT_KEYS = {
 }
 _PCB_KEYS = {"position", "layer", "rotation"}
 _SCH_KEYS = {"position"}
-_GRID_KEYS = {"id", "shape", "pitch", "origin", "order", "layer", "parts_per_cell", "start_corner"}
+_GRID_KEYS = {"id", "shape", "pitch", "origin", "order", "layer",
+              "parts_per_cell", "start_corner", "vias_per_cell"}
+_GRID_VIA_KEYS = {"net", "offset", "size", "drill"}
 _GRID_CELL_KEYS = _COMPONENT_KEYS | {"offset", "layer"}
 _SHEET_KEYS = {"paper", "components", "grids", "subsheets"}
 _SUBSHEET_KEYS = {"sheet", "label", "schematic", "size", "pin_map"}
@@ -234,6 +237,10 @@ def _build_grid(obj: Any, context: str) -> Grid:
             for i, p in enumerate(obj["parts_per_cell"])
         ],
         start_corner=str(obj.get("start_corner", "top-left")),
+        vias_per_cell=[
+            _build_grid_via(v, f"{context}.vias_per_cell[{i}]")
+            for i, v in enumerate(obj.get("vias_per_cell") or [])
+        ],
     )
 
 
@@ -251,6 +258,17 @@ def _build_grid_cell(obj: Any, context: str) -> GridCellPart:
         offset=_as_xy(obj.get("offset", [0, 0]), f"{context}.offset"),
         layer=_as_layer(layer_raw, f"{context}.layer") if layer_raw is not None else None,
         no_connect_pins=[str(p) for p in (obj.get("no_connect_pins") or [])],
+    )
+
+
+def _build_grid_via(obj: Any, context: str) -> GridVia:
+    _require_dict(obj, context)
+    _require_keys(obj, _GRID_VIA_KEYS, context, required={"net"})
+    return GridVia(
+        net=str(obj["net"]),
+        offset=_as_xy(obj.get("offset", [0, 0]), f"{context}.offset"),
+        size=float(obj.get("size", 0.6)),
+        drill=float(obj.get("drill", 0.3)),
     )
 
 

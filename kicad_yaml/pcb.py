@@ -21,7 +21,7 @@ from kiutils.footprint import Footprint
 from kiutils.items.common import Net, Position
 from kiutils.items.gritems import GrLine
 
-from kicad_yaml.layout import ResolvedComponent, resolve_rotation_for_layer
+from kicad_yaml.layout import ResolvedComponent, ResolvedVia, resolve_rotation_for_layer
 from kicad_yaml.libraries import LibraryResolver
 from kicad_yaml.schema import BoardZone, Design, Layer, format_version_for
 from kicad_yaml.topology import SheetTopology
@@ -86,11 +86,16 @@ def write_pcb(
     *,
     libraries: Optional[LibraryResolver] = None,
     topology: Optional[SheetTopology] = None,
-) -> None:
+    vias: Optional[List[ResolvedVia]] = None,
+) -> List[ResolvedVia]:
     """Write a full .kicad_pcb file from a design and its expanded parts.
 
     ``net_order`` is the canonical list of user nets; we assign consecutive
     net numbers starting at 1 (0 is reserved for "no net").
+
+    Returns the list of vias that were *skipped* because their position
+    would collide with a back-side pad.  Callers can surface these as
+    build warnings so the user can patch the design by hand.
     """
     existing_tracks = _read_existing_tracks(output)
 
@@ -105,7 +110,7 @@ def write_pcb(
             _board_zone_to_ki_zone(zone_def, net_index, design, topology)
         )
 
-    if resolved and libraries is None:
+    if (resolved or vias) and libraries is None:
         libraries = LibraryResolver()
     for rc in resolved:
         fp = _place_footprint(rc, libraries, net_order, design, topology)
@@ -123,7 +128,20 @@ def write_pcb(
     if existing_tracks:
         board.traceItems = existing_tracks
 
+    skipped_vias: List[ResolvedVia] = []
+    if vias:
+        keepouts = _back_side_pad_keepouts(resolved, libraries)
+        for v in vias:
+            via_clearance = v.size / 2.0 + 0.15
+            if _point_in_any_keepout(v.position, via_clearance, keepouts):
+                skipped_vias.append(v)
+                continue
+            ki_via = _resolved_via_to_ki_via(v, net_index, design, topology)
+            if ki_via is not None:
+                board.traceItems.append(ki_via)
+
     board.to_file(str(output))
+    return skipped_vias
 
 
 def _read_existing_tracks(output: Path) -> list:
@@ -268,6 +286,106 @@ def _board_zone_to_ki_zone(
         polygons=[ki_poly],
         filledPolygons=[],
     )
+
+
+def _back_side_pad_keepouts(
+    resolved: List[ResolvedComponent],
+    libraries: Optional[LibraryResolver],
+) -> List[tuple]:
+    """Return axis-aligned keepout rectangles (xmin, ymin, xmax, ymax) in
+    board coordinates around every pad on every back-side component.
+
+    Used to reject stitching vias that would punch through a back-side
+    component's pad.  A conservative bounding box per pad + a small
+    clearance envelope is enough — via diameters and pad sizes are both
+    small relative to the cell pitch.
+    """
+    if not libraries:
+        return []
+    rects: List[tuple] = []
+    for rc in resolved:
+        if rc.pcb_layer is not Layer.BACK:
+            continue
+        try:
+            template = libraries.footprint(rc.footprint_lib_name)
+        except Exception:
+            continue
+        fx, fy = rc.pcb_position
+        # Same transform kiutils applies when placing the footprint: for
+        # back-layer parts the footprint is X-mirrored and rotated by the
+        # KiCad-internal angle (resolve_rotation_for_layer converts the
+        # user-facing CCW-from-outside angle).
+        stored_angle = resolve_rotation_for_layer(rc.pcb_rotation, rc.pcb_layer)
+        theta = math.radians(stored_angle)
+        cos_a, sin_a = math.cos(theta), math.sin(theta)
+        for pad in (template.pads or []):
+            if pad.position is None:
+                continue
+            lx, ly = pad.position.X, pad.position.Y
+            if rc.pcb_layer is Layer.BACK:
+                lx = -lx
+            rx = lx * cos_a - ly * sin_a
+            ry = lx * sin_a + ly * cos_a
+            ax, ay = fx + rx, fy + ry
+            size = getattr(pad, "size", None)
+            if size is None:
+                half = 0.4   # sensible fallback for fluff pads
+            else:
+                sx = getattr(size, "X", None)
+                sy = getattr(size, "Y", None)
+                if sx is None or sy is None:
+                    try:
+                        sx, sy = size[0], size[1]
+                    except Exception:
+                        sx = sy = 0.8
+                # Rotation of the pad itself — use the diagonal as a
+                # conservative enclosing radius rather than solving the
+                # rotated AABB exactly.
+                half = math.hypot(float(sx), float(sy)) / 2.0
+            rects.append((ax - half, ay - half, ax + half, ay + half))
+    return rects
+
+
+def _point_in_any_keepout(
+    pt: tuple,
+    radius: float,
+    rects: List[tuple],
+) -> bool:
+    x, y = pt
+    for xmin, ymin, xmax, ymax in rects:
+        if (xmin - radius) <= x <= (xmax + radius) and \
+           (ymin - radius) <= y <= (ymax + radius):
+            return True
+    return False
+
+
+def _resolved_via_to_ki_via(
+    v: ResolvedVia,
+    net_index: dict,
+    design: Design,
+    topology: Optional[SheetTopology],
+):
+    """Construct a kiutils Via for a single ResolvedVia."""
+    try:
+        from kiutils.items.brditems import Via as KiVia
+    except Exception:
+        return None
+    qualified = qualify_net_name(
+        v.net,
+        sheet_id=v.sheet_id,
+        design=design,
+        topology=topology,
+    )
+    net_num = net_index.get(qualified, 0)
+    ki_via = KiVia(
+        position=Position(X=v.position[0], Y=v.position[1]),
+        size=v.size,
+        drill=v.drill,
+        layers=["F.Cu", "B.Cu"],
+        net=net_num,
+        tstamp=str(uuid.uuid4()),
+    )
+    return ki_via
 
 
 def flip_footprint_to_back(fp: Footprint) -> None:
