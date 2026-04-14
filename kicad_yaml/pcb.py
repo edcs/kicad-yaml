@@ -12,6 +12,9 @@ from typing import Iterable, List, Optional
 # Apply the KiCad 10 net-format patch on import so any Board.from_file
 # we might do internally succeeds.
 from kicad_yaml import kicad_net_patch  # noqa: F401
+# Preserve footprint property position/layer/effects across the kiutils
+# parse → write cycle; otherwise references drift off-board.
+from kicad_yaml import kicad_property_patch  # noqa: F401
 
 from kiutils.board import Board as KiBoard
 from kiutils.footprint import Footprint
@@ -278,3 +281,11 @@ def flip_footprint_to_back(fp: Footprint) -> None:
             justify = g.effects.justify
             if justify is not None:
                 justify.mirror = True
+    # Property raw s-exprs are preserved by kicad_property_patch; flip any
+    # layer entries inside so silkscreen/fab references move to the back.
+    raw = getattr(fp, "_rawProperties", None)
+    if raw:
+        for name, item in raw.items():
+            for sub in item[3:] if len(item) > 3 else []:
+                if isinstance(sub, list) and len(sub) >= 2 and sub[0] == "layer":
+                    sub[1] = _flip_layer(sub[1])
