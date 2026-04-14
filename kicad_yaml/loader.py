@@ -48,6 +48,7 @@ _TEMPLATE_KEYS = {"symbol", "footprint", "value"}
 _COMPONENT_KEYS = {
     "ref", "template", "symbol", "footprint", "value",
     "pcb", "schematic", "pin_nets", "no_connect_pins",
+    "suppress_keepouts",
 }
 _PCB_KEYS = {"position", "layer", "rotation"}
 _SCH_KEYS = {"position"}
@@ -218,6 +219,7 @@ def _build_component(obj: Any, context: str) -> Component:
         value=obj.get("value"),
         schematic=sch,
         no_connect_pins=[str(p) for p in (obj.get("no_connect_pins") or [])],
+        suppress_keepouts=bool(obj.get("suppress_keepouts", False)),
     )
 
 

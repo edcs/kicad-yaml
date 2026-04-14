@@ -100,6 +100,7 @@ Dict mapping sheet ID to sheet definition. `"main"` is required and serves as th
 | `pin_nets` | dict | yes | -- | Pin number/name to net name |
 | `no_connect_pins` | list | no | `[]` | Pins that get NoConnect markers |
 | `schematic` | object | no | auto | Schematic position override |
+| `suppress_keepouts` | bool | no | `false` | Drop any footprint-embedded keepout (rule-area) zones on placement. Use for e.g. the ESP32-S3-WROOM-2 antenna keepout when you want copper pours / traces to flow through that region. Trades a small RF-performance penalty for routing freedom. |
 
 *Either `template` or both `symbol` + `footprint` must be set.
 

@@ -156,6 +156,7 @@ def _resolve_component(
         pin_nets=dict(comp.pin_nets),
         no_connect_pins=list(comp.no_connect_pins),
         sch_position=comp.schematic.position if comp.schematic else None,
+        suppress_keepouts=comp.suppress_keepouts,
     )
 
 

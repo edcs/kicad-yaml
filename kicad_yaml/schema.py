@@ -89,6 +89,10 @@ class Component:
     value: Optional[str] = None
     schematic: Optional[SchematicConfig] = None
     no_connect_pins: List[str] = field(default_factory=list)
+    # Drop footprint-embedded keepout zones during board placement (e.g.
+    # ESP32 antenna keepout). Trades a small RF-performance penalty for
+    # unrestricted routing/pour fill in that area.
+    suppress_keepouts: bool = False
 
 
 @dataclass
