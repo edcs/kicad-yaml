@@ -89,6 +89,8 @@ def write_pcb(
     ``net_order`` is the canonical list of user nets; we assign consecutive
     net numbers starting at 1 (0 is reserved for "no net").
     """
+    existing_tracks = _read_existing_tracks(output)
+
     board = KiBoard.create_new()
     _set_outline(board, design)
     _set_net_table(board, net_order)
@@ -114,7 +116,26 @@ def write_pcb(
             fp.zones = []
         board.footprints.append(fp)
 
+    if existing_tracks:
+        board.traceItems = existing_tracks
+
     board.to_file(str(output))
+
+
+def _read_existing_tracks(output: Path) -> list:
+    """Return all trace items (segments, arcs, vias) from an existing PCB file.
+
+    Called before the file is overwritten so that manually routed traces
+    survive a rebuild.  Returns an empty list if the file does not exist
+    or cannot be parsed.
+    """
+    if not output.exists():
+        return []
+    try:
+        old_board = KiBoard.from_file(str(output))
+        return list(old_board.traceItems or [])
+    except Exception:
+        return []
 
 
 def _set_outline(board: KiBoard, design: Design) -> None:
