@@ -62,7 +62,14 @@ See [Getting started](docs/getting-started.md) for details.
 
 ## Status
 
-v0.1.0: Flat and hierarchical sheets, grid parametrics, back-side components, expression syntax. KiCad 10 only.
+KiCad 10 only. Current features:
+
+- Flat and hierarchical sheets with net propagation
+- Grid parametrics with `{index}`/`{row}`/`{col}` expressions
+- Back-side component placement with automatic rotation handling
+- Board-level copper pours (`board.zones`) for power planes
+- Route preservation — manual tracks and vias survive a rebuild so long as the components they connect to haven't moved
+- `--reload` flag that asks a running KiCad PCB Editor to reload the file after a build (macOS only; requires Accessibility permission)
 
 ## License
 

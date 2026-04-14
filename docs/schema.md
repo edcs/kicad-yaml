@@ -25,6 +25,35 @@ Every key in `design.yaml` is documented here. All sizes and positions are in mi
 |---|---|---|---|---|
 | `size` | `[width, height]` | yes | -- | Board outline dimensions |
 | `paper` | string | no | `"A4"` | Default schematic paper size |
+| `zones` | list | no | `[]` | Board-level copper pours (see `board.zones[]`) |
+
+### `board.zones[]`
+
+Each entry defines a filled copper zone assigned to one net on one copper layer. Typical use is a GND pour on the back and a VCC pour on the front so that all power connections are handled without per-trace routing.
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `net` | string | yes | -- | Net name. Globals pass through; other nets are resolved relative to the root sheet. |
+| `layer` | string | yes | -- | KiCad layer name, e.g. `"F.Cu"` or `"B.Cu"`. |
+| `polygon` | list of `[x, y]` | yes | -- | Zone outline as a closed polygon (3+ points, mm). |
+| `clearance` | float | no | `0.5` | Pad clearance / thermal-relief gap (mm) |
+| `min_thickness` | float | no | `0.254` | Minimum copper width when filled (mm) |
+| `priority` | int | no | `0` | Fill priority when zones overlap — higher wins |
+| `name` | string | no | -- | Optional zone label |
+
+Zones are written unfilled. Press **B** in the KiCad PCB editor to fill them after opening the file.
+
+```yaml
+board:
+  size: [205, 145]
+  zones:
+    - net: GND
+      layer: B.Cu
+      polygon: [[0, 0], [205, 0], [205, 145], [0, 145]]
+    - net: VCC
+      layer: F.Cu
+      polygon: [[0, 0], [205, 0], [205, 145], [0, 145]]
+```
 
 ## `global_nets`
 

@@ -18,7 +18,7 @@ export KICAD_SHARE=/path/to/kicad/SharedSupport
 ## CLI
 
 ```
-kicad-yaml build <design.yaml> [--output-dir DIR]
+kicad-yaml build <design.yaml> [--output-dir DIR] [--reload]
 kicad-yaml validate <design.yaml>
 kicad-yaml --version
 ```
@@ -26,6 +26,24 @@ kicad-yaml --version
 `build` writes one `.kicad_pcb` and one `.kicad_sch` per sheet. Files go alongside the YAML file, or into `--output-dir`.
 
 `validate` runs the loader and library checks without writing files.
+
+### `--reload` (macOS)
+
+Asks a running KiCad PCB Editor to reload the file via AppleScript (**File → Revert**). Requires a one-time grant of Accessibility permission to the terminal you run this from:
+
+**System Settings → Privacy & Security → Accessibility → + → your terminal app**.
+
+On Linux and Windows, `--reload` is a silent no-op. If KiCad isn't running or the permission isn't granted, `build` still succeeds and emits a warning explaining what to do.
+
+## Route preservation
+
+When `build` overwrites an existing `.kicad_pcb`, it reads the previous file first and copies every track segment, arc, and via into the new output. Manually routed traces therefore survive rebuilds.
+
+- If a component's position didn't change in the YAML, its tracks stay electrically valid.
+- If a component moved, its tracks will be stale in the new board — they show up as DRC errors and can be rerouted.
+- To start from a clean slate, delete the `.kicad_pcb` before building.
+
+Board-level zones (`board.zones`) are regenerated from the YAML on every build, not preserved from the previous file.
 
 ## Python API
 
@@ -60,6 +78,7 @@ else:
 | `yaml_source` | `Path` or `str` | required | `Path` reads from disk. `str` is parsed as literal YAML content. |
 | `output_dir` | `Path` or `None` | YAML file's directory | Where to write generated files |
 | `kicad_share` | `Path` or `None` | auto-detect | Override KiCad library root |
+| `reload_kicad` | `bool` | `False` | After writing, try to reload an open KiCad PCB Editor (macOS only) |
 
 ## Tests
 
