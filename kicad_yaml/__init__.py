@@ -47,6 +47,7 @@ def build(
     yaml_source: YamlSource,
     output_dir: Optional[Path] = None,
     kicad_share: Optional[Path] = None,
+    reload_kicad: bool = False,
 ) -> BuildResult:
     """Read a design YAML and write KiCad files."""
     from kicad_yaml.loader import load_design, LoadError
@@ -114,6 +115,26 @@ def build(
             sch_paths.append(sch_path)
     except LibraryError as e:
         return _fail("LIB-SYMBOL-NOT-FOUND", str(e))
+
+    if reload_kicad:
+        from kicad_yaml.kicad_refresh import refresh_open_pcb
+        status = refresh_open_pcb(pcb_path)
+        if status == "error:accessibility-denied":
+            warnings.append(Message(
+                severity="warning",
+                code="KICAD-REFRESH-ACCESSIBILITY",
+                message=(
+                    "--reload needs Accessibility permission on macOS. "
+                    "Open System Settings → Privacy & Security → Accessibility "
+                    "and enable the terminal app running this command."
+                ),
+            ))
+        elif status.startswith("error:"):
+            warnings.append(Message(
+                severity="warning",
+                code="KICAD-REFRESH-FAILED",
+                message=f"could not refresh open KiCad PCB: {status[6:]}",
+            ))
 
     return BuildResult(
         success=True,

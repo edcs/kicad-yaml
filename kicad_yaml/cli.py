@@ -23,6 +23,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     build_cmd.add_argument("yaml", type=Path, help="Path to the design YAML file")
     build_cmd.add_argument("--output-dir", type=Path, default=None,
                            help="Where to write the generated files (default: beside the YAML)")
+    build_cmd.add_argument("--reload", action="store_true",
+                           help="After writing, ask a running KiCad PCB Editor to reload the file (macOS only)")
 
     val_cmd = sub.add_parser("validate", help="Check a design YAML for errors without writing files")
     val_cmd.add_argument("yaml", type=Path, help="Path to the design YAML file")
@@ -35,7 +37,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not args.yaml.exists():
             print(f"error: file not found: {args.yaml}", file=sys.stderr)
             return 1
-        result = build(args.yaml, output_dir=args.output_dir, kicad_share=kicad_share)
+        result = build(args.yaml, output_dir=args.output_dir,
+                       kicad_share=kicad_share, reload_kicad=args.reload)
         return _report(result, "build")
 
     if args.command == "validate":
