@@ -125,7 +125,7 @@ Dict mapping sheet ID to sheet definition. `"main"` is required and serves as th
 | `shape` | `[cols, rows]` | yes | -- | Grid dimensions |
 | `pitch` | `[x, y]` | yes | -- | Cell spacing |
 | `origin` | `[x, y]` | yes | -- | Centre of cell (1,1) on the PCB |
-| `order` | string | no | `"row_major"` | Cell numbering order |
+| `order` | string | no | `"row_major"` | Cell numbering order (`row_major`, `row_major_serpentine`) |
 | `layer` | `"front"` / `"back"` | no | `"front"` | Default layer for all cell parts |
 | `parts_per_cell` | list | yes | -- | Component definitions per cell |
 
@@ -139,6 +139,11 @@ Same fields as `components[]` plus:
 | `layer` | `"front"` / `"back"` | grid's | Per-part layer override |
 
 `ref`, `value`, and `pin_nets` values support `{expression}` syntax.
+
+**Grid orders:**
+
+- `row_major` — index counts left-to-right within each row, top-to-bottom across rows. Cell (r, c) has `index = (r-1) * cols + c`.
+- `row_major_serpentine` — same as `row_major` on odd rows (1, 3, 5…), reversed on even rows. Useful for daisy-chained LED matrices: the chain snakes back at each row end, so the last LED of row N and the first LED of row N+1 are physically adjacent and only need a short trace. Physical `row` and `col` are unchanged; only `index` (the chain position) flips on even rows.
 
 ## Expression syntax
 

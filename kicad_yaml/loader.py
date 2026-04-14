@@ -304,7 +304,7 @@ def _as_layer(obj: Any, context: str) -> Layer:
         raise LoadError(f"{context} must be 'front' or 'back', got {obj!r}")
 
 
-_VALID_GRID_ORDERS = {"row_major"}
+_VALID_GRID_ORDERS = {"row_major", "row_major_serpentine"}
 
 
 def _validate_semantic(design: Design) -> None:

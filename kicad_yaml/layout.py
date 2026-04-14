@@ -123,7 +123,11 @@ def _expand_grid(
     origin_x, origin_y = grid.origin
     for r in range(1, rows + 1):
         for c in range(1, cols + 1):
-            index = (r - 1) * cols + c  # row_major
+            if grid.order == "row_major_serpentine" and r % 2 == 0:
+                # Even rows run right-to-left so the chain snakes back.
+                index = (r - 1) * cols + (cols - c + 1)
+            else:
+                index = (r - 1) * cols + c  # row_major
             cell_x = origin_x + (c - 1) * pitch_x
             cell_y = origin_y + (r - 1) * pitch_y
             variables = {
