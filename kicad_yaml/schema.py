@@ -68,6 +68,7 @@ class Board:
     plane_assignments: Dict[str, str] = field(default_factory=dict)
     hide_references: bool = False   # hide every footprint's reference designator on silkscreen
     hide_values: bool = False       # hide every footprint's value on silkscreen
+    hide_user_text: bool = False    # hide fp_text "user" items (e.g. pin-1 markers) on silkscreen
 
 
 @dataclass

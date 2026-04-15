@@ -350,6 +350,10 @@ def _place_footprint(
     # kicad_property_patch so the writer emits it.
     _set_property_hidden(fp, "Reference", design.board.hide_references)
     _set_property_hidden(fp, "Value", design.board.hide_values)
+    if design.board.hide_user_text:
+        for item in fp.graphicItems or []:
+            if getattr(item, "type", None) == "user" and hasattr(item, "hide"):
+                item.hide = True
 
     net_index = {name: i + 1 for i, name in enumerate(net_order)}
     for pad in fp.pads:
