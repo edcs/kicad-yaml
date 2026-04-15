@@ -83,6 +83,30 @@ def qualify_net_name(
     return f"/{path}/{current_net}"
 
 
+def _expand_plane_assignments(design: "Design") -> list:
+    """Synthesize a full-board BoardZone for each entry in ``board.plane_assignments``.
+
+    A plane assignment declares that a specific copper layer should carry a
+    single named net — typically VCC or GND on an inner layer of a 4-layer
+    stackup. This expands to a rectangular zone covering the entire board.
+    """
+    from kicad_yaml.schema import BoardZone
+
+    if not design.board.plane_assignments:
+        return []
+    width, height = design.board.size
+    rect = [(0.0, 0.0), (width, 0.0), (width, height), (0.0, height)]
+    return [
+        BoardZone(
+            net=net_name,
+            layer=layer_name,
+            polygon=rect,
+            name=f"auto-plane-{layer_name}",
+        )
+        for layer_name, net_name in design.board.plane_assignments.items()
+    ]
+
+
 def _add_inner_copper_layers(board: KiBoard) -> None:
     """Insert ``In1.Cu`` and ``In2.Cu`` into a freshly-created 2-layer board
     to make it a 4-layer stackup.
@@ -134,6 +158,10 @@ def write_pcb(
     _set_net_table(board, net_order)
 
     net_index = {name: i + 1 for i, name in enumerate(net_order)}
+    for zone_def in _expand_plane_assignments(design):
+        board.zones.append(
+            _board_zone_to_ki_zone(zone_def, net_index, design, topology)
+        )
     for zone_def in design.board.zones:
         board.zones.append(
             _board_zone_to_ki_zone(zone_def, net_index, design, topology)

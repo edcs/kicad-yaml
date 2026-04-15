@@ -46,6 +46,44 @@ def test_loader_rejects_invalid_layer_count():
         load_design(yaml)
 
 
+def test_loader_accepts_stackup():
+    yaml = BASE.replace(
+        "{{size: [50, 30]}}",
+        "{{size: [50, 30], layers: 4, stackup: [F.Cu, In1.Cu, In2.Cu, B.Cu]}}",
+    ).format(components="[]", grids="[]")
+    design = load_design(yaml)
+    assert design.board.stackup == ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]
+
+
+def test_loader_rejects_stackup_length_mismatch():
+    yaml = BASE.replace(
+        "{{size: [50, 30]}}",
+        "{{size: [50, 30], layers: 2, stackup: [F.Cu, In1.Cu, In2.Cu, B.Cu]}}",
+    ).format(components="[]", grids="[]")
+    with pytest.raises(LoadError, match="stackup has 4 entries"):
+        load_design(yaml)
+
+
+def test_loader_accepts_plane_assignments():
+    yaml = BASE.replace(
+        "{{size: [50, 30]}}",
+        "{{size: [50, 30], layers: 4, stackup: [F.Cu, In1.Cu, In2.Cu, B.Cu], "
+        "plane_assignments: {{In1.Cu: VCC, In2.Cu: GND}}}}",
+    ).format(components="[]", grids="[]")
+    design = load_design(yaml)
+    assert design.board.plane_assignments == {"In1.Cu": "VCC", "In2.Cu": "GND"}
+
+
+def test_loader_rejects_plane_assignment_to_missing_stackup_layer():
+    yaml = BASE.replace(
+        "{{size: [50, 30]}}",
+        "{{size: [50, 30], layers: 4, stackup: [F.Cu, In1.Cu, In2.Cu, B.Cu], "
+        "plane_assignments: {{In3.Cu: VCC}}}}",
+    ).format(components="[]", grids="[]")
+    with pytest.raises(LoadError, match="not in board.stackup"):
+        load_design(yaml)
+
+
 def test_component_with_unknown_template_errors():
     bad_component = """
       - ref: LED1

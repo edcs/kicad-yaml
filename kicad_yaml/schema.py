@@ -57,6 +57,15 @@ class Board:
     paper: str = "A4"
     zones: List[BoardZone] = field(default_factory=list)
     layers: int = 2               # copper layer count: 2 (F.Cu/B.Cu) or 4 (+In1.Cu/In2.Cu)
+    # Ordered list of copper layer names, top-to-bottom. If None, defaults to the
+    # canonical stackup for `layers` (e.g. ["F.Cu", "B.Cu"] for 2-layer).
+    stackup: Optional[List[str]] = None
+    # Optional net assignments for specific layers, typically used to make inner
+    # layers behave as power/ground planes. Key = layer name (must appear in the
+    # stackup); value = net name (must be declared in global_nets). When set,
+    # the generated .kicad_pcb gets a full-board copper zone on that layer
+    # connected to the named net.
+    plane_assignments: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

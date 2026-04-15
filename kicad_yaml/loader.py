@@ -43,7 +43,7 @@ class LoadError(ValueError):
 
 _TOP_LEVEL_KEYS = {"project", "board", "global_nets", "templates", "sheets"}
 _PROJECT_KEYS = {"name", "kicad_version", "format_version"}
-_BOARD_KEYS = {"size", "paper", "zones", "layers"}
+_BOARD_KEYS = {"size", "paper", "zones", "layers", "stackup", "plane_assignments"}
 _ZONE_KEYS = {"net", "layer", "polygon", "clearance", "min_thickness", "priority", "name"}
 _TEMPLATE_KEYS = {"symbol", "footprint", "value"}
 _COMPONENT_KEYS = {
@@ -138,11 +138,41 @@ def _build_board(obj: Any) -> Board:
         raise LoadError(
             f"board.layers must be 2 or 4; got {layers}"
         )
+
+    stackup = obj.get("stackup")
+    if stackup is not None:
+        if not isinstance(stackup, list) or not all(
+            isinstance(x, str) for x in stackup
+        ):
+            raise LoadError("board.stackup must be a list of layer names")
+        if len(stackup) != layers:
+            raise LoadError(
+                f"board.stackup has {len(stackup)} entries but board.layers is {layers}"
+            )
+
+    plane_assignments_raw = obj.get("plane_assignments") or {}
+    if not isinstance(plane_assignments_raw, dict):
+        raise LoadError("board.plane_assignments must be a mapping of layer→net")
+    plane_assignments: Dict[str, str] = {}
+    for layer_name, net_name in plane_assignments_raw.items():
+        if not isinstance(layer_name, str) or not isinstance(net_name, str):
+            raise LoadError(
+                "board.plane_assignments entries must be layer-name → net-name strings"
+            )
+        if stackup is not None and layer_name not in stackup:
+            raise LoadError(
+                f"board.plane_assignments references layer {layer_name!r} "
+                f"which is not in board.stackup"
+            )
+        plane_assignments[layer_name] = net_name
+
     return Board(
         size=_as_xy(obj["size"], "board.size"),
         paper=str(obj.get("paper", "A4")),
         zones=zones,
         layers=layers,
+        stackup=stackup,
+        plane_assignments=plane_assignments,
     )
 
 
