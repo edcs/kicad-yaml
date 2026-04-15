@@ -123,6 +123,34 @@ class GridVia:
 
 
 @dataclass
+class GridTrack:
+    """A track segment generated once per grid cell.
+
+    ``from_pad`` and ``to_pad`` are ``"PartRef.padNumber"`` templates that
+    may reference parts in *other* cells via ``{index+1}`` etc.  The
+    generator evaluates both expressions with the current cell's
+    variables; if either resolved part doesn't exist (e.g. off the end of
+    the chain at the last cell), the track is silently skipped.
+    """
+    from_pad: str           # "LED{index}.2"
+    to_pad: str             # "LED{index+1}.4"
+    net: str                # "D{index+1}"
+    layer: str = "F.Cu"
+    width: float = 0.25
+    # Segment shape between the two pads:
+    # - "direct": one straight segment pad → pad (diagonal if pads aren't aligned).
+    # - "45":     Z-shape with 45° chamfers at each end and a straight
+    #             horizontal / vertical middle run.
+    style: str = "direct"
+    # Signed offset applied to the middle run of a 45-style track.  Only the
+    # axis perpendicular to the dominant direction is used: for a mostly-
+    # horizontal hop, ``corridor_offset[1]`` shifts the middle run in Y (use
+    # this to route above/below a row of pads); for a mostly-vertical hop,
+    # ``corridor_offset[0]`` shifts the middle in X.
+    corridor_offset: Tuple[float, float] = (0.0, 0.0)
+
+
+@dataclass
 class Grid:
     id: str
     shape: Tuple[int, int]        # (cols, rows)
@@ -135,6 +163,7 @@ class Grid:
     # unchanged; only the index-to-cell mapping flips.
     start_corner: str = "top-left"
     vias_per_cell: List[GridVia] = field(default_factory=list)
+    tracks_per_cell: List[GridTrack] = field(default_factory=list)
 
 
 @dataclass

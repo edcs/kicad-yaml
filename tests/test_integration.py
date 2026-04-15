@@ -24,10 +24,15 @@ def test_integration_flat_end_to_end(tmp_path):
     # 1 resistor + 2 LEDs + 2 caps
     refs = sorted(fp.properties["Reference"] for fp in board.footprints)
     assert refs == ["C1", "C2", "LED1", "LED2", "R1"]
-    # R1 is on the back with rotation 270 (90 CCW user → 270 stored)
+    # R1 is on the back with user rotation 90 CCW.  kicad-yaml bakes
+    # rotation into pad positions, so the footprint's own angle is 0
+    # and each pad carries the stored-convention angle (270 for back).
     r1 = next(fp for fp in board.footprints if fp.properties["Reference"] == "R1")
     assert r1.layer == "B.Cu"
-    assert r1.position.angle == 270.0
+    assert r1.position.angle == 0.0
+    for pad in r1.pads:
+        if pad.position is not None:
+            assert pad.position.angle == 270.0
     # Net table contains VCC, GND, and root-local nets (slash-prefixed)
     net_names = {n.name for n in board.nets if n.name}
     assert {"VCC", "GND", "/MCU_DATA", "/D0", "/D1", "/D2"} <= net_names

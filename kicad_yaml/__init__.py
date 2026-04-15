@@ -52,7 +52,9 @@ def build(
     """Read a design YAML and write KiCad files."""
     from kicad_yaml.loader import load_design, LoadError
     from kicad_yaml.libraries import LibraryResolver, LibraryError
-    from kicad_yaml.layout import expand_design, expand_vias, assign_schematic_positions
+    from kicad_yaml.layout import (
+        expand_design, expand_vias, expand_tracks, assign_schematic_positions,
+    )
     from kicad_yaml.pcb import write_pcb
     from kicad_yaml.schematic import write_schematic
     from kicad_yaml.topology import SheetTopology, TopologyError
@@ -98,6 +100,7 @@ def build(
     warnings = _check_lock_files(output_dir, design.project.name)
 
     vias = expand_vias(design)
+    tracks = expand_tracks(design)
 
     try:
         pcb_path = output_dir / f"{design.project.name}.kicad_pcb"
@@ -105,6 +108,7 @@ def build(
             design, resolved, net_order, pcb_path,
             libraries=libraries, topology=topology,
             vias=vias,
+            tracks=tracks,
         )
         if skipped_vias:
             cell_list = ", ".join(

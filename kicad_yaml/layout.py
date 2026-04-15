@@ -20,6 +20,7 @@ from kicad_yaml.schema import (
     Design,
     Grid,
     GridCellPart,
+    GridTrack,
     GridVia,
     Layer,
     SchematicConfig,
@@ -73,6 +74,76 @@ class ResolvedVia:
     cell_row: int              # 1-indexed physical row
     cell_col: int              # 1-indexed physical column
     grid_id: str
+
+
+@dataclass
+class ResolvedTrack:
+    """A grid-generated track segment awaiting pad-position lookup.
+
+    ``from_ref`` / ``to_ref`` are resolved reference designators
+    (template variables already substituted), paired with the pad number
+    on each side.  The PCB writer resolves the absolute pad positions
+    and emits a kiutils Segment.  If either reference doesn't exist
+    (e.g. the last cell in a chain with no successor), the writer skips.
+    """
+    sheet_id: str
+    net: str
+    from_ref: str
+    from_pad: str
+    to_ref: str
+    to_pad: str
+    layer: str
+    width: float
+    style: str = "direct"
+    corridor_offset: Tuple[float, float] = (0.0, 0.0)
+
+
+def expand_tracks(design: Design) -> List[ResolvedTrack]:
+    """Return every track described by ``tracks_per_cell`` across every
+    grid.  References to parts in neighbouring cells are evaluated via
+    expression substitution; missing parts are handled at write time."""
+    out: List[ResolvedTrack] = []
+    for sheet_name, sheet in design.sheets.items():
+        for grid in sheet.grids:
+            if not grid.tracks_per_cell:
+                continue
+            cols, rows = grid.shape
+            starts_bottom = grid.start_corner.startswith("bottom")
+            starts_right = grid.start_corner.endswith("right")
+            for r in range(1, rows + 1):
+                for c in range(1, cols + 1):
+                    srow = (rows - r + 1) if starts_bottom else r
+                    scol = (cols - c + 1) if starts_right else c
+                    if grid.order == "row_major_serpentine" and srow % 2 == 0:
+                        index = (srow - 1) * cols + (cols - scol + 1)
+                    else:
+                        index = (srow - 1) * cols + scol
+                    variables = {
+                        "index": index, "row": r, "col": c,
+                        "rows": rows, "cols": cols,
+                    }
+                    for track in grid.tracks_per_cell:
+                        from_expr = substitute(track.from_pad, variables)
+                        to_expr = substitute(track.to_pad, variables)
+                        net = substitute(track.net, variables)
+                        # from_pad / to_pad are "Ref.padNumber"
+                        if "." not in from_expr or "." not in to_expr:
+                            continue
+                        from_ref, from_pin = from_expr.rsplit(".", 1)
+                        to_ref, to_pin = to_expr.rsplit(".", 1)
+                        out.append(ResolvedTrack(
+                            sheet_id=sheet_name,
+                            net=net,
+                            from_ref=from_ref,
+                            from_pad=from_pin,
+                            to_ref=to_ref,
+                            to_pad=to_pin,
+                            layer=track.layer,
+                            width=track.width,
+                            style=track.style,
+                            corridor_offset=track.corridor_offset,
+                        ))
+    return out
 
 
 def expand_vias(design: Design) -> List[ResolvedVia]:

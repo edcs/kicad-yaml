@@ -67,6 +67,7 @@ KiCad 10 only. Current features:
 - Flat and hierarchical sheets with net propagation
 - Grid parametrics with `{index}`/`{row}`/`{col}` expressions, serpentine / corner-start options for daisy-chained matrices
 - Per-cell stitching vias (`vias_per_cell`) with automatic back-side-pad conflict detection
+- Per-cell track segments (`tracks_per_cell`) for daisy-chained signals — generates the whole chain every build, no manual routing
 - Back-side component placement with automatic rotation handling
 - Board-level copper pours (`board.zones`) for power planes
 - Route preservation — manual tracks and vias survive a rebuild so long as the components they connect to haven't moved

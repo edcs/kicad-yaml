@@ -25,6 +25,7 @@ from kicad_yaml.schema import (
     Design,
     Grid,
     GridCellPart,
+    GridTrack,
     GridVia,
     Layer,
     PcbConfig,
@@ -53,8 +54,12 @@ _COMPONENT_KEYS = {
 _PCB_KEYS = {"position", "layer", "rotation"}
 _SCH_KEYS = {"position"}
 _GRID_KEYS = {"id", "shape", "pitch", "origin", "order", "layer",
-              "parts_per_cell", "start_corner", "vias_per_cell"}
+              "parts_per_cell", "start_corner", "vias_per_cell",
+              "tracks_per_cell"}
 _GRID_VIA_KEYS = {"net", "offset", "size", "drill"}
+_GRID_TRACK_KEYS = {"from_pad", "to_pad", "net", "layer", "width", "style",
+                    "corridor_offset"}
+_VALID_TRACK_STYLES = {"direct", "45"}
 _GRID_CELL_KEYS = _COMPONENT_KEYS | {"offset", "layer"}
 _SHEET_KEYS = {"paper", "components", "grids", "subsheets"}
 _SUBSHEET_KEYS = {"sheet", "label", "schematic", "size", "pin_map"}
@@ -243,6 +248,10 @@ def _build_grid(obj: Any, context: str) -> Grid:
             _build_grid_via(v, f"{context}.vias_per_cell[{i}]")
             for i, v in enumerate(obj.get("vias_per_cell") or [])
         ],
+        tracks_per_cell=[
+            _build_grid_track(t, f"{context}.tracks_per_cell[{i}]")
+            for i, t in enumerate(obj.get("tracks_per_cell") or [])
+        ],
     )
 
 
@@ -271,6 +280,28 @@ def _build_grid_via(obj: Any, context: str) -> GridVia:
         offset=_as_xy(obj.get("offset", [0, 0]), f"{context}.offset"),
         size=float(obj.get("size", 0.6)),
         drill=float(obj.get("drill", 0.3)),
+    )
+
+
+def _build_grid_track(obj: Any, context: str) -> GridTrack:
+    _require_dict(obj, context)
+    _require_keys(obj, _GRID_TRACK_KEYS, context,
+                  required={"from_pad", "to_pad", "net"})
+    style = str(obj.get("style", "direct"))
+    if style not in _VALID_TRACK_STYLES:
+        raise LoadError(
+            f"{context}: unknown track style '{style}'. "
+            f"supported: {sorted(_VALID_TRACK_STYLES)}"
+        )
+    return GridTrack(
+        from_pad=str(obj["from_pad"]),
+        to_pad=str(obj["to_pad"]),
+        net=str(obj["net"]),
+        layer=str(obj.get("layer", "F.Cu")),
+        width=float(obj.get("width", 0.25)),
+        style=style,
+        corridor_offset=_as_xy(obj.get("corridor_offset", [0, 0]),
+                               f"{context}.corridor_offset"),
     )
 
 

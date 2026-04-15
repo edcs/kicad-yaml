@@ -82,8 +82,16 @@ def test_back_footprint_layer_flipped_and_rotation_inverted():
         board = KiBoard.from_file(str(out))
     fp = board.footprints[0]
     assert fp.layer == "B.Cu"
-    # 90 CCW on back is stored as 270
-    assert fp.position.angle == 270.0
+    # kicad-yaml bakes footprint rotation into the pad/graphic positions
+    # themselves (working around a KiCad rendering bug with rotated SMD
+    # pads on the back layer), so the footprint's stored angle is 0 and
+    # each pad carries the rotation on its own `at`.
+    assert fp.position.angle == 0.0
+    for pad in fp.pads:
+        if pad.position is None:
+            continue
+        # 90 CCW user → stored 270 on back → baked as 270 on each pad
+        assert pad.position.angle == 270.0
     # All pad layers are B.*
     for pad in fp.pads:
         assert all(l.startswith("B.") for l in pad.layers if not l.startswith("*"))

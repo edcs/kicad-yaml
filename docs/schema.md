@@ -155,6 +155,31 @@ Stitching vias generated once per grid cell.  Typical use: drop a shared net (GN
 
 **Conflict detection.**  Before writing each via, kicad-yaml checks the candidate position against every pad on every back-side component.  Vias whose copper would overlap a back-side pad are silently dropped, and the build emits a warning with a list of the skipped `(row, col)` cells so you know which to route by hand.
 
+### `grids[].tracks_per_cell[]`
+
+Track segments generated once per grid cell.  Typical use: the LED-to-LED data chain on a daisy-chained matrix.  Each track references two pads — the "from" pad on a part in the current cell, and the "to" pad on a part that may live in *another* cell (usually `{index+1}`).  When a referenced ref doesn't resolve (e.g. off the end of the chain), that particular track is silently skipped.
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `from_pad` | string | yes | -- | `"RefTemplate.padNumber"` — the pad the track starts from, with `{index}` / `{row}` / `{col}` substitution. |
+| `to_pad` | string | yes | -- | Same format as `from_pad`, but usually references the next cell (e.g. `"LED{index+1}.4"`). |
+| `net` | string | yes | -- | Net name template. Must match the net on both pads; used to look up the right net number. |
+| `layer` | string | no | `"F.Cu"` | KiCad copper layer. |
+| `width` | float | no | `0.25` | Track width (mm). |
+| `style` | string | no | `"direct"` | `"direct"` = single segment pad → pad (may be diagonal). `"45"` = Z-shape with a 45° chamfer at each end and a straight middle run. |
+| `corridor_offset` | `[dx, dy]` | no | `[0, 0]` | For `style: "45"` only. Pushes the middle run off the midpoint: `dy` is used on horizontal-dominant hops (shift the middle above/below a row of pads), `dx` on vertical-dominant hops (shift the middle left/right of a column). Use this to route the middle in *clear space* rather than through intermediate pads. If the offset would make the chamfers overlap, kicad-yaml silently falls back to the zero-offset shape. |
+
+```yaml
+tracks_per_cell:
+  - from_pad: "LED{index}.2"      # DOUT of this cell's LED
+    to_pad:   "LED{index+1}.4"    # DIN of next LED in the chain
+    net:      "D{index+1}"
+    layer:    F.Cu
+    width:    0.25
+```
+
+The chain respects `order` + `start_corner`, so with `row_major_serpentine` + `start_corner: bottom-left`, every row-end hop naturally stays short.
+
 **Grid orders:**
 
 - `row_major` — index counts left-to-right within each row, top-to-bottom across rows. Cell (r, c) has `index = (r-1) * cols + c`.
