@@ -719,10 +719,8 @@ def _bake_footprint_rotation(fp: Footprint, angle_deg: float) -> None:
                     x, y = float(sub[1]), float(sub[2])
                 except (TypeError, ValueError):
                     continue
-                rx = x * cos_t - y * sin_t
-                ry = x * sin_t + y * cos_t
-                sub[1] = rx
-                sub[2] = ry
+                sub[1] = round(x * cos_t - y * sin_t, 6)
+                sub[2] = round(x * sin_t + y * cos_t, 6)
                 # Bump angle too if present
                 if len(sub) >= 4:
                     try:
@@ -745,10 +743,29 @@ def flip_footprint_to_back(fp: Footprint) -> None:
             if justify is not None:
                 justify.mirror = True
     # Property raw s-exprs are preserved by kicad_property_patch; flip any
-    # layer entries inside so silkscreen/fab references move to the back.
+    # layer entries inside so silkscreen/fab references move to the back,
+    # and add (justify mirror) to their effects so the text reads right
+    # when viewed from the back of the board.  Without this, KiCad DRC
+    # raises a "nonmirrored_text_on_back_layer" warning for every property.
     raw = getattr(fp, "_rawProperties", None)
     if raw:
         for name, item in raw.items():
             for sub in item[3:] if len(item) > 3 else []:
-                if isinstance(sub, list) and len(sub) >= 2 and sub[0] == "layer":
+                if not isinstance(sub, list) or len(sub) < 1:
+                    continue
+                if sub[0] == "layer" and len(sub) >= 2:
                     sub[1] = _flip_layer(sub[1])
+                elif sub[0] == "effects":
+                    _ensure_text_mirrored(sub)
+
+
+def _ensure_text_mirrored(effects_expr: list) -> None:
+    """Make sure the given ``(effects ...)`` s-expr includes
+    ``(justify mirror)`` — appending to an existing ``(justify ...)`` if
+    there is one, or adding a new ``(justify mirror)`` entry if not."""
+    for i, sub in enumerate(effects_expr[1:], start=1):
+        if isinstance(sub, list) and len(sub) >= 1 and sub[0] == "justify":
+            if "mirror" not in sub[1:]:
+                sub.append("mirror")
+            return
+    effects_expr.append(["justify", "mirror"])
