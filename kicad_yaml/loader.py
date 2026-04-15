@@ -43,7 +43,10 @@ class LoadError(ValueError):
 
 _TOP_LEVEL_KEYS = {"project", "board", "global_nets", "templates", "sheets"}
 _PROJECT_KEYS = {"name", "kicad_version", "format_version"}
-_BOARD_KEYS = {"size", "paper", "zones", "layers", "stackup", "plane_assignments"}
+_BOARD_KEYS = {
+    "size", "paper", "zones", "layers", "stackup", "plane_assignments",
+    "hide_references", "hide_values",
+}
 _ZONE_KEYS = {"net", "layer", "polygon", "clearance", "min_thickness", "priority", "name"}
 _TEMPLATE_KEYS = {"symbol", "footprint", "value"}
 _COMPONENT_KEYS = {
@@ -173,6 +176,8 @@ def _build_board(obj: Any) -> Board:
         layers=layers,
         stackup=stackup,
         plane_assignments=plane_assignments,
+        hide_references=bool(obj.get("hide_references", False)),
+        hide_values=bool(obj.get("hide_values", False)),
     )
 
 

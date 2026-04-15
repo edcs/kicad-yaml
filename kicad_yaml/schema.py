@@ -66,6 +66,8 @@ class Board:
     # the generated .kicad_pcb gets a full-board copper zone on that layer
     # connected to the named net.
     plane_assignments: Dict[str, str] = field(default_factory=dict)
+    hide_references: bool = False   # hide every footprint's reference designator on silkscreen
+    hide_values: bool = False       # hide every footprint's value on silkscreen
 
 
 @dataclass

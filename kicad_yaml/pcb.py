@@ -83,6 +83,30 @@ def qualify_net_name(
     return f"/{path}/{current_net}"
 
 
+def _set_property_hidden(fp: Footprint, name: str, hidden: bool) -> None:
+    """Toggle ``(hide yes)`` inside a footprint property's raw s-expression.
+
+    kicad-yaml preserves each footprint property's full s-expr on
+    ``fp._rawProperties`` (see ``kicad_property_patch``); the writer
+    re-emits whatever is in there. This helper mutates that list so
+    ``hide`` appears (or disappears) inside the emitted property block.
+    """
+    raw_map = getattr(fp, "_rawProperties", None)
+    if not raw_map or name not in raw_map:
+        return
+    raw = raw_map[name]
+    # Drop any existing ``hide`` token first so toggling is idempotent.
+    raw_map[name] = [
+        item for item in raw
+        if not (
+            (isinstance(item, list) and len(item) >= 1 and item[0] == "hide")
+            or item == "hide"
+        )
+    ]
+    if hidden:
+        raw_map[name].append(["hide", "yes"])
+
+
 def _expand_plane_assignments(design: "Design") -> list:
     """Synthesize a full-board BoardZone for each entry in ``board.plane_assignments``.
 
@@ -319,6 +343,13 @@ def _place_footprint(
         fp.properties = {}
     fp.properties["Reference"] = rc.ref
     fp.properties["Value"] = rc.value
+
+    # Honor board-level silkscreen visibility flags. KiCad 10 stores
+    # reference/value as footprint ``(property ...)`` blocks; the hide marker
+    # is a nested ``(hide yes)`` token. We edit the raw s-expr preserved by
+    # kicad_property_patch so the writer emits it.
+    _set_property_hidden(fp, "Reference", design.board.hide_references)
+    _set_property_hidden(fp, "Value", design.board.hide_values)
 
     net_index = {name: i + 1 for i, name in enumerate(net_order)}
     for pad in fp.pads:

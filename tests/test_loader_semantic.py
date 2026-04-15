@@ -74,6 +74,23 @@ def test_loader_accepts_plane_assignments():
     assert design.board.plane_assignments == {"In1.Cu": "VCC", "In2.Cu": "GND"}
 
 
+def test_loader_accepts_hide_silkscreen_flags():
+    yaml = BASE.replace(
+        "{{size: [50, 30]}}",
+        "{{size: [50, 30], hide_references: true, hide_values: true}}",
+    ).format(components="[]", grids="[]")
+    design = load_design(yaml)
+    assert design.board.hide_references is True
+    assert design.board.hide_values is True
+
+
+def test_loader_hide_silkscreen_flags_default_false():
+    yaml = BASE.format(components="[]", grids="[]")
+    design = load_design(yaml)
+    assert design.board.hide_references is False
+    assert design.board.hide_values is False
+
+
 def test_loader_rejects_plane_assignment_to_missing_stackup_layer():
     yaml = BASE.replace(
         "{{size: [50, 30]}}",
