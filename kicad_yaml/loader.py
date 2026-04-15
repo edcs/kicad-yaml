@@ -43,7 +43,7 @@ class LoadError(ValueError):
 
 _TOP_LEVEL_KEYS = {"project", "board", "global_nets", "templates", "sheets"}
 _PROJECT_KEYS = {"name", "kicad_version", "format_version"}
-_BOARD_KEYS = {"size", "paper", "zones"}
+_BOARD_KEYS = {"size", "paper", "zones", "layers"}
 _ZONE_KEYS = {"net", "layer", "polygon", "clearance", "min_thickness", "priority", "name"}
 _TEMPLATE_KEYS = {"symbol", "footprint", "value"}
 _COMPONENT_KEYS = {
@@ -133,10 +133,16 @@ def _build_board(obj: Any) -> Board:
         _build_board_zone(z, f"board.zones[{i}]")
         for i, z in enumerate(obj.get("zones") or [])
     ]
+    layers = int(obj.get("layers", 2))
+    if layers not in (2, 4):
+        raise LoadError(
+            f"board.layers must be 2 or 4; got {layers}"
+        )
     return Board(
         size=_as_xy(obj["size"], "board.size"),
         paper=str(obj.get("paper", "A4")),
         zones=zones,
+        layers=layers,
     )
 
 

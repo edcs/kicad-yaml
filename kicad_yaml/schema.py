@@ -56,6 +56,7 @@ class Board:
     size: Tuple[float, float]     # (width, height) in mm
     paper: str = "A4"
     zones: List[BoardZone] = field(default_factory=list)
+    layers: int = 2               # copper layer count: 2 (F.Cu/B.Cu) or 4 (+In1.Cu/In2.Cu)
 
 
 @dataclass

@@ -47,6 +47,16 @@ def test_grid_cell_part_defaults():
     assert cell.layer is None  # inherits from grid
 
 
+def test_board_defaults_to_2_layers():
+    board = Board(size=(50.0, 30.0))
+    assert board.layers == 2
+
+
+def test_board_accepts_4_layers():
+    board = Board(size=(50.0, 30.0), layers=4)
+    assert board.layers == 4
+
+
 def test_design_minimal():
     design = Design(
         project=Project(name="test", kicad_version=10),

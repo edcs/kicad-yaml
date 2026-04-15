@@ -83,6 +83,27 @@ def qualify_net_name(
     return f"/{path}/{current_net}"
 
 
+def _add_inner_copper_layers(board: KiBoard) -> None:
+    """Insert ``In1.Cu`` and ``In2.Cu`` into a freshly-created 2-layer board
+    to make it a 4-layer stackup.
+
+    KiCad 10's canonical layer ordinals are: F.Cu=0, In1.Cu=1, In2.Cu=2,
+    B.Cu=31. ``kiutils.board.Board.create_new`` only populates F.Cu (0) and
+    B.Cu (31), so we insert the two inner copper layers between them.
+    """
+    from kiutils.items.brditems import LayerToken
+
+    # Find B.Cu (ordinal 31) and insert In1/In2 just before it.
+    b_cu_index = next(
+        (i for i, layer in enumerate(board.layers) if layer.name == "B.Cu"),
+        None,
+    )
+    if b_cu_index is None:
+        raise RuntimeError("expected B.Cu in default board layers; kiutils defaults changed?")
+    board.layers.insert(b_cu_index, LayerToken(ordinal=1, name="In1.Cu", type="signal"))
+    board.layers.insert(b_cu_index + 1, LayerToken(ordinal=2, name="In2.Cu", type="signal"))
+
+
 def write_pcb(
     design: Design,
     resolved: List[ResolvedComponent],
@@ -107,6 +128,8 @@ def write_pcb(
 
     board = KiBoard.create_new()
     board.version = format_version_for(design.project)
+    if design.board.layers == 4:
+        _add_inner_copper_layers(board)
     _set_outline(board, design)
     _set_net_table(board, net_order)
 

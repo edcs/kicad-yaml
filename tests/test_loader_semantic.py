@@ -25,6 +25,27 @@ def _yaml(components: str = "[]", grids: str = "[]") -> str:
     return BASE.format(components=components, grids=grids)
 
 
+def test_loader_accepts_board_layers_2():
+    yaml = BASE.replace("{{size: [50, 30]}}", "{{size: [50, 30], layers: 2}}") \
+               .format(components="[]", grids="[]")
+    design = load_design(yaml)
+    assert design.board.layers == 2
+
+
+def test_loader_accepts_board_layers_4():
+    yaml = BASE.replace("{{size: [50, 30]}}", "{{size: [50, 30], layers: 4}}") \
+               .format(components="[]", grids="[]")
+    design = load_design(yaml)
+    assert design.board.layers == 4
+
+
+def test_loader_rejects_invalid_layer_count():
+    yaml = BASE.replace("{{size: [50, 30]}}", "{{size: [50, 30], layers: 6}}") \
+               .format(components="[]", grids="[]")
+    with pytest.raises(LoadError, match="board.layers must be 2 or 4"):
+        load_design(yaml)
+
+
 def test_component_with_unknown_template_errors():
     bad_component = """
       - ref: LED1
