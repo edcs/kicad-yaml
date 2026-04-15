@@ -56,7 +56,7 @@ _SCH_KEYS = {"position"}
 _GRID_KEYS = {"id", "shape", "pitch", "origin", "order", "layer",
               "parts_per_cell", "start_corner", "vias_per_cell",
               "tracks_per_cell"}
-_GRID_VIA_KEYS = {"net", "offset", "size", "drill"}
+_GRID_VIA_KEYS = {"net", "offset", "size", "drill", "stride"}
 _GRID_TRACK_KEYS = {"from_pad", "to_pad", "net", "layer", "width", "style",
                     "corridor_offset"}
 _VALID_TRACK_STYLES = {"direct", "45"}
@@ -275,11 +275,13 @@ def _build_grid_cell(obj: Any, context: str) -> GridCellPart:
 def _build_grid_via(obj: Any, context: str) -> GridVia:
     _require_dict(obj, context)
     _require_keys(obj, _GRID_VIA_KEYS, context, required={"net"})
+    stride = obj.get("stride", [1, 1])
     return GridVia(
         net=str(obj["net"]),
         offset=_as_xy(obj.get("offset", [0, 0]), f"{context}.offset"),
         size=float(obj.get("size", 0.6)),
         drill=float(obj.get("drill", 0.3)),
+        stride=_as_int_pair(stride, f"{context}.stride"),
     )
 
 

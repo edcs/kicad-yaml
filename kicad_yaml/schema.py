@@ -115,11 +115,16 @@ class GridVia:
     Offset is applied to the cell geometric centre.  For a grid on the
     back layer, X is mirrored so the via sits at the same *visual* spot
     relative to the cell.
+
+    ``stride`` lets you place vias on only every Nth cell along each axis
+    (default 1, every cell).  Useful on LED matrices where a single via
+    every 2–4 cells is plenty of GND path and keeps fab cost down.
     """
     net: str
     offset: Tuple[float, float] = (0.0, 0.0)
-    size: float = 0.6      # annular diameter (mm)
-    drill: float = 0.3     # through-hole diameter (mm)
+    size: float = 0.6                       # annular diameter (mm)
+    drill: float = 0.3                      # through-hole diameter (mm)
+    stride: Tuple[int, int] = (1, 1)        # (col_stride, row_stride)
 
 
 @dataclass

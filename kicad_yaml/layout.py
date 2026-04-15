@@ -163,6 +163,9 @@ def expand_vias(design: Design) -> List[ResolvedVia]:
                     cell_x = origin_x + (c - 1) * pitch_x
                     cell_y = origin_y + (r - 1) * pitch_y
                     for via in grid.vias_per_cell:
+                        stride_c, stride_r = via.stride
+                        if (c - 1) % stride_c != 0 or (r - 1) % stride_r != 0:
+                            continue
                         off_x, off_y = via.offset
                         if grid.layer is Layer.BACK:
                             off_x = -off_x

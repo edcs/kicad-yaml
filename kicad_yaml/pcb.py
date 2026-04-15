@@ -136,14 +136,30 @@ def write_pcb(
             fp.zones = []
         board.footprints.append(fp)
 
-    # Compute everything we're about to (re)generate *before* we touch the
-    # preserved traceItems, so the sanitiser can drop stale copies.
-    auto_via_positions = set()
-    if vias:
-        for v in vias:
-            auto_via_positions.add(
-                (round(v.position[0], 3), round(v.position[1], 3))
-            )
+    # Compute every position the current vias_per_cell config could OCCUPY
+    # (ignoring stride and back-side-pad conflicts) — so the sanitiser can
+    # drop stale copies of auto-vias when the stride is changed.  If we
+    # only matched the positions we're actually emitting this build, an
+    # old, tighter stride's vias would persist as "preserved user vias".
+    auto_via_positions: set = set()
+    for _sheet_name, _sheet in design.sheets.items():
+        for _grid in _sheet.grids:
+            if not _grid.vias_per_cell:
+                continue
+            _cols, _rows = _grid.shape
+            _px, _py = _grid.pitch
+            _ox, _oy = _grid.origin
+            for _r in range(1, _rows + 1):
+                for _c in range(1, _cols + 1):
+                    _cx = _ox + (_c - 1) * _px
+                    _cy = _oy + (_r - 1) * _py
+                    for _v in _grid.vias_per_cell:
+                        _dx, _dy = _v.offset
+                        if _grid.layer is Layer.BACK:
+                            _dx = -_dx
+                        auto_via_positions.add(
+                            (round(_cx + _dx, 3), round(_cy + _dy, 3))
+                        )
 
     by_ref = {rc.ref: rc for rc in resolved}
     fresh_segments_by_track: list = []
