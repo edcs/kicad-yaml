@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-from kicad_yaml import __version__, build, validate, BuildResult
+from kicad_yaml import __version__, build, validate, sync, BuildResult
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -29,6 +29,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     val_cmd = sub.add_parser("validate", help="Check a design YAML for errors without writing files")
     val_cmd.add_argument("yaml", type=Path, help="Path to the design YAML file")
 
+    sync_cmd = sub.add_parser("sync", help="Pull component positions from .kicad_pcb back into the YAML")
+    sync_cmd.add_argument("yaml", type=Path, help="Path to the design YAML file")
+
     args = parser.parse_args(argv)
     kicad_share_env = os.environ.get("KICAD_SHARE")
     kicad_share = Path(kicad_share_env) if kicad_share_env else None
@@ -47,6 +50,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
         result = validate(args.yaml, kicad_share=kicad_share)
         return _report(result, "validate")
+
+    if args.command == "sync":
+        if not args.yaml.exists():
+            print(f"error: file not found: {args.yaml}", file=sys.stderr)
+            return 1
+        result = sync(args.yaml)
+        return _report_sync(result)
 
     parser.error(f"unknown command {args.command!r}")
     return 2
@@ -68,6 +78,20 @@ def _report(result: BuildResult, command: str) -> int:
             print(f"  {p}")
     else:
         print("ok: design is valid")
+    return 0
+
+
+def _report_sync(result: BuildResult) -> int:
+    if not result.success:
+        for msg in result.errors:
+            print(f"error: [{msg.code}] {msg.message}", file=sys.stderr)
+        return 1
+    for msg in result.warnings:
+        print(f"warning: [{msg.code}] {msg.message}", file=sys.stderr)
+    if result.generated_files:
+        print(f"ok: updated {len(result.generated_files)} file(s)")
+    else:
+        print("ok: no position changes detected")
     return 0
 
 

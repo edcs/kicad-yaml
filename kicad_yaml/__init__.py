@@ -221,6 +221,42 @@ def validate(
     return BuildResult(success=True)
 
 
+def sync(
+    yaml_source: Path,
+) -> BuildResult:
+    """Read positions from .kicad_pcb and update the design YAML in-place."""
+    from kicad_yaml.sync import sync_positions
+
+    yaml_path = Path(yaml_source)
+    if not yaml_path.exists():
+        return _fail("SYNC-YAML-NOT-FOUND", f"YAML file not found: {yaml_path}")
+
+    # Derive PCB path from project name in the YAML
+    from ruamel.yaml import YAML as RuamelYAML
+    rt = RuamelYAML(typ="safe")
+    data = rt.load(yaml_path)
+    project_name = data["project"]["name"]
+    pcb_path = yaml_path.parent / f"{project_name}.kicad_pcb"
+
+    if not pcb_path.exists():
+        return _fail(
+            "SYNC-PCB-NOT-FOUND",
+            f"no .kicad_pcb found at {pcb_path}; run `build` first",
+        )
+
+    try:
+        outcome = sync_positions(yaml_path, pcb_path)
+    except Exception as e:
+        return _fail("SYNC-ERROR", str(e))
+
+    warnings: list[Message] = []
+    return BuildResult(
+        success=True,
+        generated_files=[yaml_path] if outcome.changes else [],
+        warnings=warnings,
+    )
+
+
 def _fail(code: str, message: str,
           source: Optional[SourceLocation] = None) -> BuildResult:
     return BuildResult(

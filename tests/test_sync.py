@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from kicad_yaml import build
+from kicad_yaml.cli import main
 from kicad_yaml.sync import read_pcb_positions, recover_user_rotation
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -193,3 +194,42 @@ class TestSyncPositions:
         assert r1_comp["template"] == "fake_r"
         # Grid still present
         assert len(data["sheets"]["main"]["grids"]) == 1
+
+
+class TestSyncCli:
+    """CLI integration for the sync subcommand."""
+
+    def test_sync_command_ok(self, tmp_path, monkeypatch, capsys):
+        yaml_src = FIXTURES / "integration_flat.yaml"
+        yaml_copy = tmp_path / "design.yaml"
+        shutil.copy(yaml_src, yaml_copy)
+        monkeypatch.setenv("KICAD_SHARE", str(FAKE_SHARE))
+
+        # Build first so we have a PCB
+        exit_code = main(["build", str(yaml_copy)])
+        assert exit_code == 0
+        capsys.readouterr()  # clear build output
+
+        # Now sync (no changes expected since we just built)
+        exit_code = main(["sync", str(yaml_copy)])
+        assert exit_code == 0
+        out = capsys.readouterr().out
+        assert "no position changes" in out.lower()
+
+    def test_sync_command_missing_pcb(self, tmp_path, monkeypatch, capsys):
+        # Write a YAML but don't build
+        yaml_path = tmp_path / "design.yaml"
+        yaml_path.write_text((FIXTURES / "integration_flat.yaml").read_text())
+        monkeypatch.setenv("KICAD_SHARE", str(FAKE_SHARE))
+
+        exit_code = main(["sync", str(yaml_path)])
+        assert exit_code == 1
+        err = capsys.readouterr().err
+        assert "error" in err.lower()
+
+    def test_sync_command_missing_yaml(self, monkeypatch, capsys):
+        monkeypatch.setenv("KICAD_SHARE", str(FAKE_SHARE))
+        exit_code = main(["sync", "/nonexistent/design.yaml"])
+        assert exit_code == 1
+        err = capsys.readouterr().err
+        assert "error" in err.lower()
