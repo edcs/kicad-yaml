@@ -233,3 +233,32 @@ class TestSyncCli:
         assert exit_code == 1
         err = capsys.readouterr().err
         assert "error" in err.lower()
+
+
+class TestSyncOutput:
+    """The sync command prints per-component change details."""
+
+    def test_prints_position_changes(self, tmp_path, monkeypatch, capsys):
+        yaml_src = FIXTURES / "integration_flat.yaml"
+        yaml_copy = tmp_path / "design.yaml"
+        shutil.copy(yaml_src, yaml_copy)
+        monkeypatch.setenv("KICAD_SHARE", str(FAKE_SHARE))
+
+        # Build
+        assert main(["build", str(yaml_copy)]) == 0
+        capsys.readouterr()
+
+        # Move R1 in the PCB
+        pcb_path = tmp_path / "integration_flat.kicad_pcb"
+        board = KiBoard.from_file(str(pcb_path))
+        r1 = next(fp for fp in board.footprints if fp.properties["Reference"] == "R1")
+        r1.position.X = 25.0
+        r1.position.Y = 10.0
+        board.to_file(str(pcb_path))
+
+        # Sync
+        assert main(["sync", str(yaml_copy)]) == 0
+        out = capsys.readouterr().out
+        assert "R1" in out
+        assert "25.0" in out
+        assert "10.0" in out

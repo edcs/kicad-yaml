@@ -87,9 +87,13 @@ def _report_sync(result: BuildResult) -> int:
             print(f"error: [{msg.code}] {msg.message}", file=sys.stderr)
         return 1
     for msg in result.warnings:
-        print(f"warning: [{msg.code}] {msg.message}", file=sys.stderr)
-    if result.generated_files:
-        print(f"ok: updated {len(result.generated_files)} file(s)")
+        if msg.code == "SYNC-CHANGED":
+            print(msg.message)
+        else:
+            print(f"warning: [{msg.code}] {msg.message}", file=sys.stderr)
+    n = len([m for m in result.warnings if m.code == "SYNC-CHANGED"])
+    if n > 0:
+        print(f"ok: updated {n} component(s)")
     else:
         print("ok: no position changes detected")
     return 0

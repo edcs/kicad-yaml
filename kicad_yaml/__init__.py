@@ -231,7 +231,6 @@ def sync(
     if not yaml_path.exists():
         return _fail("SYNC-YAML-NOT-FOUND", f"YAML file not found: {yaml_path}")
 
-    # Derive PCB path from project name in the YAML
     from ruamel.yaml import YAML as RuamelYAML
     rt = RuamelYAML(typ="safe")
     data = rt.load(yaml_path)
@@ -249,11 +248,25 @@ def sync(
     except Exception as e:
         return _fail("SYNC-ERROR", str(e))
 
-    warnings: list[Message] = []
+    info: list[Message] = []
+    for c in outcome.changes:
+        parts = []
+        if c.old_position != c.new_position:
+            parts.append(
+                f"position [{c.old_position[0]}, {c.old_position[1]}]"
+                f" -> [{c.new_position[0]}, {c.new_position[1]}]"
+            )
+        if c.old_rotation != c.new_rotation:
+            parts.append(f"rotation {c.old_rotation} -> {c.new_rotation}")
+        info.append(Message(
+            severity="warning", code="SYNC-CHANGED",
+            message=f"{c.ref}: {', '.join(parts)}",
+        ))
+
     return BuildResult(
         success=True,
         generated_files=[yaml_path] if outcome.changes else [],
-        warnings=warnings,
+        warnings=info,
     )
 
 
