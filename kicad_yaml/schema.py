@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 
 class Layer(Enum):
@@ -102,10 +102,11 @@ class Component:
     value: Optional[str] = None
     schematic: Optional[SchematicConfig] = None
     no_connect_pins: List[str] = field(default_factory=list)
-    # Drop footprint-embedded keepout zones during board placement (e.g.
-    # ESP32 antenna keepout). Trades a small RF-performance penalty for
-    # unrestricted routing/pour fill in that area.
-    suppress_keepouts: bool = False
+    # Control footprint-embedded keepout zones (e.g. ESP32 antenna keepout).
+    #   false       — keep keepouts as-is (block tracks, vias, fills)
+    #   true        — drop keepouts entirely (backward compat)
+    #   "fill_only" — keep keepouts but only block copper fill; allow tracks and vias through
+    suppress_keepouts: Union[bool, str] = False
 
 
 @dataclass

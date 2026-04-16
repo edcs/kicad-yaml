@@ -203,8 +203,11 @@ def write_pcb(
         # example) but keep ordinary copper zones.
         if fp.zones:
             for zone in fp.zones:
-                if rc.suppress_keepouts and _is_keepout_zone(zone):
-                    continue
+                if _is_keepout_zone(zone):
+                    if rc.suppress_keepouts is True:
+                        continue
+                    if rc.suppress_keepouts == "fill_only":
+                        _keepout_fill_only(zone)
                 _zone_to_board_coords(zone, fp.position, rc.pcb_layer)
                 zone.tstamp = str(uuid.uuid4())
                 board.zones.append(zone)
@@ -515,6 +518,16 @@ def _sanitise_preserved_traceitems(
 
         out.append(item)
     return out
+
+
+def _keepout_fill_only(zone) -> None:
+    """Relax a keepout zone to only block copper pour, allowing tracks and vias."""
+    ks = getattr(zone, "keepoutSettings", None)
+    if ks is None:
+        return
+    ks.tracks = "allowed"
+    ks.vias = "allowed"
+    ks.copperpour = "not_allowed"
 
 
 def _is_keepout_zone(zone) -> bool:

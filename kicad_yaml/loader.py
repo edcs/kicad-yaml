@@ -266,8 +266,19 @@ def _build_component(obj: Any, context: str) -> Component:
         value=obj.get("value"),
         schematic=sch,
         no_connect_pins=[str(p) for p in (obj.get("no_connect_pins") or [])],
-        suppress_keepouts=bool(obj.get("suppress_keepouts", False)),
+        suppress_keepouts=_parse_suppress_keepouts(obj.get("suppress_keepouts", False)),
     )
+
+
+def _parse_suppress_keepouts(val: Any):
+    """Accept ``true``, ``false``, or ``"fill_only"``."""
+    if isinstance(val, str):
+        if val == "fill_only":
+            return "fill_only"
+        raise LoadError(
+            f"suppress_keepouts must be true, false, or 'fill_only'; got {val!r}"
+        )
+    return bool(val)
 
 
 def _build_grid(obj: Any, context: str) -> Grid:
