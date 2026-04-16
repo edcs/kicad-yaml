@@ -137,9 +137,13 @@ def sync_positions(
     """
     pcb_positions = read_pcb_positions(pcb_path)
 
-    # Load YAML with round-trip mode to preserve formatting
+    # Load YAML with round-trip mode to preserve formatting.
+    # indent() settings match the project convention (2-space mapping,
+    # 4-space sequence with 2-offset dash) so the emitter doesn't
+    # reformat untouched lines.
     rt_yaml = YAML(typ="rt")
     rt_yaml.preserve_quotes = True
+    rt_yaml.indent(mapping=2, sequence=4, offset=2)
     doc = rt_yaml.load(yaml_path)
 
     changes: List[PositionChange] = []
