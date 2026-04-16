@@ -262,3 +262,51 @@ class TestSyncOutput:
         assert "R1" in out
         assert "25.0" in out
         assert "10.0" in out
+
+
+class TestSyncWarnings:
+    """Sync warns about refs present in YAML but missing from PCB."""
+
+    def test_warns_on_missing_pcb_ref(self, tmp_path, monkeypatch, capsys):
+        # Create a YAML with a component that won't be in the PCB
+        yaml_text = """\
+project:
+  name: warn_test
+board:
+  size: [50, 30]
+global_nets: [VCC, GND]
+templates:
+  fc:
+    symbol: Fake:FakeC
+    footprint: Fake:FakeSMD
+sheets:
+  main:
+    paper: A4
+    components:
+      - ref: C1
+        template: fc
+        pcb: {position: [10, 10]}
+        pin_nets: {"1": VCC, "2": GND}
+"""
+        yaml_path = tmp_path / "design.yaml"
+        yaml_path.write_text(yaml_text)
+        monkeypatch.setenv("KICAD_SHARE", str(FAKE_SHARE))
+
+        # Build to get PCB
+        assert main(["build", str(yaml_path)]) == 0
+
+        # Now add a second component to the YAML (not in PCB)
+        yaml_text_v2 = yaml_text.rstrip() + """
+      - ref: C2
+        template: fc
+        pcb: {position: [20, 10]}
+        pin_nets: {"1": VCC, "2": GND}
+"""
+        yaml_path.write_text(yaml_text_v2)
+
+        # Sync — should warn about C2 missing from PCB
+        capsys.readouterr()
+        assert main(["sync", str(yaml_path)]) == 0
+        output = capsys.readouterr()
+        assert "C2" in output.err
+        assert "not found" in output.err.lower()

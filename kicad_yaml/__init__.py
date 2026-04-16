@@ -263,6 +263,12 @@ def sync(
             message=f"{c.ref}: {', '.join(parts)}",
         ))
 
+    for ref in outcome.missing_refs:
+        info.append(Message(
+            severity="warning", code="SYNC-REF-NOT-IN-PCB",
+            message=f"{ref} not found in PCB; skipped (run `build` to regenerate)",
+        ))
+
     return BuildResult(
         success=True,
         generated_files=[yaml_path] if outcome.changes else [],
