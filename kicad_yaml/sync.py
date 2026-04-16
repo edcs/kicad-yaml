@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
+
+from ruamel.yaml import YAML
 
 from kicad_yaml import kicad_net_patch  # noqa: F401
 from kicad_yaml import kicad_property_patch  # noqa: F401
@@ -75,3 +77,125 @@ def recover_user_rotation(
     else:
         delta = (-stored_angle) % 360.0
     return (yaml_rotation + delta) % 360.0
+
+
+@dataclass
+class PositionChange:
+    """Describes a single component's position/rotation change."""
+    ref: str
+    old_position: tuple
+    new_position: tuple
+    old_rotation: float
+    new_rotation: float
+
+
+@dataclass
+class SyncOutcome:
+    """Result of a sync operation."""
+    changes: List[PositionChange]
+    missing_refs: List[str]    # refs in YAML but not in PCB
+
+
+# Tolerances for detecting meaningful changes
+_POS_TOL = 0.001     # mm
+_ROT_TOL = 0.1       # degrees
+
+
+def _format_value(v: float) -> float:
+    """Round a position value to 3 decimal places.
+    Return int-like floats cleanly (e.g. 25.0 not 25.000)."""
+    rounded = round(v, 3)
+    if rounded == int(rounded):
+        return float(int(rounded))
+    return rounded
+
+
+def _format_rotation(v: float) -> float:
+    """Round rotation to 1 decimal place."""
+    rounded = round(v, 1)
+    if rounded == int(rounded):
+        return float(int(rounded))
+    return rounded
+
+
+def sync_positions(
+    yaml_path: Path,
+    pcb_path: Path,
+) -> SyncOutcome:
+    """Sync explicit component positions from a .kicad_pcb into design YAML.
+
+    Reads the PCB, compares positions against the YAML, and updates the
+    YAML in-place for any explicit components that moved. Grid-derived
+    components are skipped.
+
+    Args:
+        yaml_path: Path to the design.yaml file.
+        pcb_path: Path to the .kicad_pcb file.
+
+    Returns:
+        SyncOutcome with changes made and any missing refs.
+    """
+    pcb_positions = read_pcb_positions(pcb_path)
+
+    # Load YAML with round-trip mode to preserve formatting
+    rt_yaml = YAML(typ="rt")
+    rt_yaml.preserve_quotes = True
+    doc = rt_yaml.load(yaml_path)
+
+    changes: List[PositionChange] = []
+    missing_refs: List[str] = []
+
+    for sheet_name, sheet_data in doc["sheets"].items():
+        components = sheet_data.get("components")
+        if not components:
+            continue
+        for comp in components:
+            ref = str(comp["ref"])
+            if ref not in pcb_positions:
+                missing_refs.append(ref)
+                continue
+
+            pcb = pcb_positions[ref]
+            yaml_pcb = comp["pcb"]
+            yaml_pos = yaml_pcb["position"]
+            old_x, old_y = float(yaml_pos[0]), float(yaml_pos[1])
+            old_rot = float(yaml_pcb.get("rotation", 0.0))
+
+            layer = pcb.layer
+            new_rot = recover_user_rotation(pcb.angle, old_rot, layer)
+
+            new_x = _format_value(pcb.x)
+            new_y = _format_value(pcb.y)
+            new_rot = _format_rotation(new_rot)
+
+            pos_changed = (
+                abs(new_x - old_x) > _POS_TOL
+                or abs(new_y - old_y) > _POS_TOL
+            )
+            rot_changed = abs(new_rot - old_rot) > _ROT_TOL
+
+            if not pos_changed and not rot_changed:
+                continue
+
+            if pos_changed:
+                yaml_pos[0] = new_x
+                yaml_pos[1] = new_y
+
+            if rot_changed:
+                if new_rot == 0.0:
+                    yaml_pcb.pop("rotation", None)
+                else:
+                    yaml_pcb["rotation"] = new_rot
+
+            changes.append(PositionChange(
+                ref=ref,
+                old_position=(old_x, old_y),
+                new_position=(new_x, new_y),
+                old_rotation=old_rot,
+                new_rotation=new_rot,
+            ))
+
+    if changes:
+        rt_yaml.dump(doc, yaml_path)
+
+    return SyncOutcome(changes=changes, missing_refs=missing_refs)

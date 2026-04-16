@@ -83,3 +83,113 @@ class TestReadPcbPositions:
     def test_missing_pcb_raises(self):
         with pytest.raises(FileNotFoundError):
             read_pcb_positions(Path("/nonexistent/board.kicad_pcb"))
+
+
+import shutil
+
+from kiutils.board import Board as KiBoard
+from ruamel.yaml import YAML
+
+from kicad_yaml.sync import sync_positions
+
+
+class TestSyncPositions:
+    """sync_positions updates YAML in-place from PCB positions."""
+
+    def _build_and_get_paths(self, tmp_path):
+        """Build a PCB from integration_flat.yaml, return (yaml_copy, pcb_path)."""
+        yaml_src = FIXTURES / "integration_flat.yaml"
+        yaml_copy = tmp_path / "design.yaml"
+        shutil.copy(yaml_src, yaml_copy)
+
+        result = build(yaml_copy, output_dir=tmp_path, kicad_share=FAKE_SHARE)
+        assert result.success
+        pcb_path = tmp_path / "integration_flat.kicad_pcb"
+        return yaml_copy, pcb_path
+
+    def test_position_update(self, tmp_path):
+        yaml_path, pcb_path = self._build_and_get_paths(tmp_path)
+
+        # Move R1 in the PCB
+        board = KiBoard.from_file(str(pcb_path))
+        r1 = next(fp for fp in board.footprints if fp.properties["Reference"] == "R1")
+        r1.position.X = 25.0
+        r1.position.Y = 10.0
+        board.to_file(str(pcb_path))
+
+        # Sync
+        outcome = sync_positions(yaml_path, pcb_path)
+        assert len(outcome.changes) == 1
+        assert outcome.changes[0].ref == "R1"
+
+        # Verify YAML updated
+        yaml = YAML(typ="safe")
+        data = yaml.load(yaml_path)
+        r1_pcb = data["sheets"]["main"]["components"][0]["pcb"]
+        assert r1_pcb["position"] == [25.0, 10.0]
+
+    def test_rotation_update(self, tmp_path):
+        yaml_path, pcb_path = self._build_and_get_paths(tmp_path)
+
+        # Rotate R1 in KiCad (it's on back layer, yaml rotation=90)
+        # Add 45 CCW from back = stored -45 = 315 in KiCad convention
+        board = KiBoard.from_file(str(pcb_path))
+        r1 = next(fp for fp in board.footprints if fp.properties["Reference"] == "R1")
+        r1.position.angle = 315.0
+        board.to_file(str(pcb_path))
+
+        outcome = sync_positions(yaml_path, pcb_path)
+        assert len(outcome.changes) == 1
+
+        yaml = YAML(typ="safe")
+        data = yaml.load(yaml_path)
+        r1_pcb = data["sheets"]["main"]["components"][0]["pcb"]
+        assert r1_pcb["rotation"] == 135.0
+
+    def test_grid_components_skipped(self, tmp_path):
+        yaml_path, pcb_path = self._build_and_get_paths(tmp_path)
+
+        # Move a grid component — should be ignored
+        board = KiBoard.from_file(str(pcb_path))
+        led1 = next(fp for fp in board.footprints if fp.properties["Reference"] == "LED1")
+        led1.position.X = 999.0
+        board.to_file(str(pcb_path))
+
+        outcome = sync_positions(yaml_path, pcb_path)
+        assert len(outcome.changes) == 0
+
+    def test_no_changes(self, tmp_path):
+        yaml_path, pcb_path = self._build_and_get_paths(tmp_path)
+
+        # Read original YAML bytes
+        original = yaml_path.read_text()
+
+        outcome = sync_positions(yaml_path, pcb_path)
+        assert len(outcome.changes) == 0
+
+        # YAML should be byte-identical
+        assert yaml_path.read_text() == original
+
+    def test_preserves_yaml_structure(self, tmp_path):
+        """Non-position content (templates, grids, pin_nets) survives sync."""
+        yaml_path, pcb_path = self._build_and_get_paths(tmp_path)
+
+        # Move R1
+        board = KiBoard.from_file(str(pcb_path))
+        r1 = next(fp for fp in board.footprints if fp.properties["Reference"] == "R1")
+        r1.position.X = 30.0
+        board.to_file(str(pcb_path))
+
+        sync_positions(yaml_path, pcb_path)
+
+        # Verify other YAML content intact
+        yaml = YAML(typ="safe")
+        data = yaml.load(yaml_path)
+        assert data["project"]["name"] == "integration_flat"
+        assert data["global_nets"] == ["VCC", "GND"]
+        assert "fake_led" in data["templates"]
+        r1_comp = data["sheets"]["main"]["components"][0]
+        assert r1_comp["pin_nets"] == {"1": "MCU_DATA", "2": "D0"}
+        assert r1_comp["template"] == "fake_r"
+        # Grid still present
+        assert len(data["sheets"]["main"]["grids"]) == 1
