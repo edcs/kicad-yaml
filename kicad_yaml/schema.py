@@ -69,6 +69,7 @@ class Board:
     hide_references: bool = False   # hide every footprint's reference designator on silkscreen
     hide_values: bool = False       # hide every footprint's value on silkscreen
     hide_user_text: bool = False    # hide fp_text "user" items (e.g. pin-1 markers) on silkscreen
+    reference_font_size: Optional[Tuple[float, float]] = None   # [width, height] mm; None = use library default
 
 
 @dataclass
@@ -107,6 +108,7 @@ class Component:
     #   true        — drop keepouts entirely (backward compat)
     #   "fill_only" — keep keepouts but only block copper fill; allow tracks and vias through
     suppress_keepouts: Union[bool, str] = False
+    show_value: Optional[bool] = None     # per-component override for board.hide_values
 
 
 @dataclass

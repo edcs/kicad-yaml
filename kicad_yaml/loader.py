@@ -46,13 +46,14 @@ _PROJECT_KEYS = {"name", "kicad_version", "format_version"}
 _BOARD_KEYS = {
     "size", "paper", "zones", "layers", "stackup", "plane_assignments",
     "hide_references", "hide_values", "hide_user_text",
+    "reference_font_size",
 }
 _ZONE_KEYS = {"net", "layer", "polygon", "clearance", "min_thickness", "priority", "name"}
 _TEMPLATE_KEYS = {"symbol", "footprint", "value"}
 _COMPONENT_KEYS = {
     "ref", "template", "symbol", "footprint", "value",
     "pcb", "schematic", "pin_nets", "no_connect_pins",
-    "suppress_keepouts",
+    "suppress_keepouts", "show_value",
 }
 _PCB_KEYS = {"position", "layer", "rotation"}
 _SCH_KEYS = {"position"}
@@ -179,6 +180,7 @@ def _build_board(obj: Any) -> Board:
         hide_references=bool(obj.get("hide_references", False)),
         hide_values=bool(obj.get("hide_values", False)),
         hide_user_text=bool(obj.get("hide_user_text", False)),
+        reference_font_size=_as_xy(obj["reference_font_size"], "board.reference_font_size") if obj.get("reference_font_size") is not None else None,
     )
 
 
@@ -267,6 +269,7 @@ def _build_component(obj: Any, context: str) -> Component:
         schematic=sch,
         no_connect_pins=[str(p) for p in (obj.get("no_connect_pins") or [])],
         suppress_keepouts=_parse_suppress_keepouts(obj.get("suppress_keepouts", False)),
+        show_value=bool(obj["show_value"]) if obj.get("show_value") is not None else None,
     )
 
 

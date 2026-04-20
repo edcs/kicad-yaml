@@ -107,6 +107,39 @@ def _set_property_hidden(fp: Footprint, name: str, hidden: bool) -> None:
         raw_map[name].append(["hide", "yes"])
 
 
+def _set_property_layer(fp: Footprint, name: str, layer: str) -> None:
+    """Change the layer of a footprint property's raw s-expression."""
+    raw_map = getattr(fp, "_rawProperties", None)
+    if not raw_map or name not in raw_map:
+        return
+    raw = raw_map[name]
+    for i, item in enumerate(raw):
+        if isinstance(item, list) and len(item) >= 2 and item[0] == "layer":
+            raw[i] = ["layer", layer]
+            return
+
+
+def _set_property_font_size(fp: Footprint, name: str, size: tuple) -> None:
+    """Set the font size inside a footprint property's raw s-expression.
+
+    Finds the ``(effects (font (size W H) ...))`` subtree and replaces
+    the width/height values.
+    """
+    raw_map = getattr(fp, "_rawProperties", None)
+    if not raw_map or name not in raw_map:
+        return
+    raw = raw_map[name]
+    for item in raw:
+        if isinstance(item, list) and len(item) >= 2 and item[0] == "effects":
+            for sub in item[1:]:
+                if isinstance(sub, list) and len(sub) >= 2 and sub[0] == "font":
+                    for part in sub[1:]:
+                        if isinstance(part, list) and len(part) >= 3 and part[0] == "size":
+                            part[1] = size[0]
+                            part[2] = size[1]
+                            return
+
+
 def _expand_plane_assignments(design: "Design") -> list:
     """Synthesize a full-board BoardZone for each entry in ``board.plane_assignments``.
 
@@ -352,7 +385,18 @@ def _place_footprint(
     # is a nested ``(hide yes)`` token. We edit the raw s-expr preserved by
     # kicad_property_patch so the writer emits it.
     _set_property_hidden(fp, "Reference", design.board.hide_references)
-    _set_property_hidden(fp, "Value", design.board.hide_values)
+    if rc.show_value is not None:
+        _set_property_hidden(fp, "Value", not rc.show_value)
+        if rc.show_value:
+            # Move value to silkscreen so it's visible on the board
+            silk = "B.SilkS" if rc.pcb_layer is Layer.BACK else "F.SilkS"
+            _set_property_layer(fp, "Value", silk)
+    else:
+        _set_property_hidden(fp, "Value", design.board.hide_values)
+    if design.board.reference_font_size is not None:
+        _set_property_font_size(fp, "Reference", design.board.reference_font_size)
+        if rc.show_value:
+            _set_property_font_size(fp, "Value", design.board.reference_font_size)
     if design.board.hide_user_text:
         for item in fp.graphicItems or []:
             if getattr(item, "type", None) == "user" and hasattr(item, "hide"):

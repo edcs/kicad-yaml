@@ -43,6 +43,7 @@ class ResolvedComponent:
     no_connect_pins: List[str]
     sch_position: Optional[Tuple[float, float]]   # None = auto-layout will fill in
     suppress_keepouts: bool = False                # drop footprint-embedded keepout zones
+    show_value: Optional[bool] = None              # per-component override for board.hide_values
     no_connect_pins_set: frozenset = field(default_factory=frozenset)
 
     def __post_init__(self) -> None:
@@ -231,6 +232,7 @@ def _resolve_component(
         no_connect_pins=list(comp.no_connect_pins),
         sch_position=comp.schematic.position if comp.schematic else None,
         suppress_keepouts=comp.suppress_keepouts,
+        show_value=comp.show_value,
     )
 
 
